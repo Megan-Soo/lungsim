@@ -287,7 +287,8 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
 
     !calculate pressure drop through arterial tree (note to do veins too need to implement this concept thro' whole ladder model)
     !Also need to implement in reverse for veins
-    call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,min_art,max_art,bc_type)
+    call pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,eff_admit,&
+    harmonic_scale,min_art,max_art,bc_type)
     if(lobe_imped.eq.'ON') then ! export lobe imped
       ! Open output file
       open(unit=10, file='lobe_imped.json', status='replace')
@@ -609,7 +610,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,11)),real(q_factor(i,11), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,11)),real(q_factor(i,11), 8))+b(i)
       enddo
       write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -617,7 +618,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+10)),real(q_factor(i,min_ven+10), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+10)),real(q_factor(i,min_ven+10), 8))+b(i)
       enddo
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -625,7 +626,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,20)),real(q_factor(i,20), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,20)),real(q_factor(i,20), 8))+b(i)
       enddo
       write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -633,7 +634,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+19)),real(q_factor(i,min_ven+19), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+19)),real(q_factor(i,min_ven+19), 8))+b(i)
       enddo
       write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -641,7 +642,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,15)),real(q_factor(i,15), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,15)),real(q_factor(i,15), 8))+b(i)
       enddo
       write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -649,7 +650,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+14)),real(q_factor(i,min_ven+14), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+14)),real(q_factor(i,min_ven+14), 8))+b(i)
       enddo
       write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -657,7 +658,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,23)),real(q_factor(i,23), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,23)),real(q_factor(i,23), 8))+b(i)
       enddo
       write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -665,7 +666,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+22)),real(q_factor(i,min_ven+22), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+22)),real(q_factor(i,min_ven+22), 8))+b(i)
       enddo
       write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -673,7 +674,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,24)),real(q_factor(i,24), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,24)),real(q_factor(i,24), 8))+b(i)
       enddo
       write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -681,7 +682,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+23)),real(q_factor(i,min_ven+23), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+23)),real(q_factor(i,min_ven+23), 8))+b(i)
       enddo
       write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -689,7 +690,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,1)),real(p_factor(i,1), 8))+b(i)-atan2(dimag(char_admit(i,1))&
+        imped(i+1) = atan2(dimag(p_factor(i,1)),real(p_factor(i,1), 8))+b(i)-atan2(dimag(char_admit(i,1))&
         ,real(char_admit(i,1), 8))
       enddo
       write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
@@ -698,7 +699,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,5)),real(q_factor(i,5), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,5)),real(q_factor(i,5), 8))+b(i)
       enddo
       write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -706,7 +707,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,8)),real(q_factor(i,8), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,8)),real(q_factor(i,8), 8))+b(i)
       enddo
       write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -714,7 +715,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,16)),real(q_factor(i,16), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,16)),real(q_factor(i,16), 8))+b(i)
       enddo
       write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -722,7 +723,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+15)),real(q_factor(i,min_ven+15), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+15)),real(q_factor(i,min_ven+15), 8))+b(i)
       enddo
       write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -730,7 +731,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,12)),real(q_factor(i,12), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,12)),real(q_factor(i,12), 8))+b(i)
       enddo
       write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -738,7 +739,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(q_factor(i,min_ven+11)),real(q_factor(i,min_ven+11), 8))+b(i)
+        imped(i+1) = atan2(dimag(q_factor(i,min_ven+11)),real(q_factor(i,min_ven+11), 8))+b(i)
       enddo
       write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       write(10, *) " ""unit"": ""radians"""
@@ -750,7 +751,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,11)),real(p_factor(i,11), 8))+b(i) ! -1 is to make it impedance phase
+        imped(i+1) = atan2(dimag(p_factor(i,11)),real(p_factor(i,11), 8))+b(i) ! -1 is to make it impedance phase
       enddo
       write(10, *) " ""LUL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -758,7 +759,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+10)),real(p_factor(i,min_ven+10), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+10)),real(p_factor(i,min_ven+10), 8))+b(i)
       enddo
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -766,7 +767,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,20)),real(p_factor(i,20), 8))+b(i) ! -1 is to make it impedance phase
+        imped(i+1) = atan2(dimag(p_factor(i,20)),real(p_factor(i,20), 8))+b(i) ! -1 is to make it impedance phase
       enddo
       write(10, *) " ""LLL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -774,7 +775,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+19)),real(p_factor(i,min_ven+19), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+19)),real(p_factor(i,min_ven+19), 8))+b(i)
       enddo
       write(10, *) " ""LLL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -782,7 +783,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,15)),real(p_factor(i,15), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,15)),real(p_factor(i,15), 8))+b(i)
       enddo
       write(10, *) " ""RUL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -790,7 +791,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+14)),real(p_factor(i,min_ven+14), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+14)),real(p_factor(i,min_ven+14), 8))+b(i)
       enddo
       write(10, *) " ""RUL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -798,7 +799,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,23)),real(p_factor(i,23), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,23)),real(p_factor(i,23), 8))+b(i)
       enddo
       write(10, *) " ""RLL_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -806,7 +807,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+22)),real(p_factor(i,min_ven+22), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+22)),real(p_factor(i,min_ven+22), 8))+b(i)
       enddo
       write(10, *) " ""RLL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -814,7 +815,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,24)),real(p_factor(i,24), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,24)),real(p_factor(i,24), 8))+b(i)
       enddo
       write(10, *) " ""RML_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -822,7 +823,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+23)),real(p_factor(i,min_ven+23), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+23)),real(p_factor(i,min_ven+23), 8))+b(i)
       enddo
       write(10, *) " ""RML_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -830,7 +831,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,1)),real(p_factor(i,1), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,1)),real(p_factor(i,1), 8))+b(i)
       enddo
       write(10, *) " ""MPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -838,7 +839,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,5)),real(p_factor(i,5), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,5)),real(p_factor(i,5), 8))+b(i)
       enddo
       write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -846,7 +847,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,8)),real(p_factor(i,8), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,8)),real(p_factor(i,8), 8))+b(i)
       enddo
       write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -854,7 +855,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,16)),real(p_factor(i,16), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,16)),real(p_factor(i,16), 8))+b(i)
       enddo
       write(10, *) " ""RBS_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -862,7 +863,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+15)),real(p_factor(i,min_ven+15), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+15)),real(p_factor(i,min_ven+15), 8))+b(i)
       enddo
       write(10, *) " ""RBS_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -870,7 +871,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,12)),real(p_factor(i,12), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,12)),real(p_factor(i,12), 8))+b(i)
       enddo
       write(10, *) " ""LBS_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -878,7 +879,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       imped(1) = 0
       do i = 1, no_freq
-        imped(i+1) = -1*atan2(dimag(p_factor(i,min_ven+11)),real(p_factor(i,min_ven+11), 8))+b(i)
+        imped(i+1) = atan2(dimag(p_factor(i,min_ven+11)),real(p_factor(i,min_ven+11), 8))+b(i)
       enddo
       write(10, *) " ""LBS_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       write(10, *) " ""unit"": ""radians"""
@@ -2341,7 +2342,8 @@ end subroutine capillary_admittance
 !################################################
 !
 !*pressure_factor:* Calculates change in pressure and flow through tree
-subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,harmonic_scale,ne_min,ne_max,bc_type)
+subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,char_admit,eff_admit&
+  ,harmonic_scale,ne_min,ne_max,bc_type)
 
   integer, intent(in) :: no_freq
   complex(dp), intent(inout) :: p_factor(1:no_freq,num_elems)
@@ -2349,6 +2351,7 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
   complex(dp), intent(inout) :: reflect(1:no_freq,num_elems)
   complex(dp), intent(in) :: prop_const(1:no_freq,num_elems)
   complex(dp), intent(in) :: char_admit(1:no_freq,num_elems)
+  complex(dp), intent(in) :: eff_admit(1:no_freq,num_elems)
   real(dp), intent(in) :: harmonic_scale
   integer, intent(in) :: ne_min,ne_max
   character(len=60) :: bc_type
@@ -2375,13 +2378,13 @@ subroutine pressure_flow_factor(no_freq,p_factor,q_factor,reflect,prop_const,cha
           p_factor(nf,ne)=(1.0_dp)!* &!assumes input admittance is the same as characteristic admittance for this vessel
             !exp(-1.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne))!/&
             !(1+reflect(nf,ne)*exp(-2.0_dp*prop_const(nf,ne)*elem_field(ne_length,ne)))
-          q_factor(nf,ne)=p_factor(nf,ne)*char_admit(nf,ne)
+          q_factor(nf,ne)=p_factor(nf,ne)*eff_admit(nf,ne)
         else
           ne_up=elem_cnct(-1,1,ne)
           p_factor(nf,ne)=p_factor(nf,ne_up)*(1+reflect(nf,ne_up))* &
             exp(-1.0_dp*elem_field(ne_length,ne_up)*prop_const(nf,ne_up))/&
             (1+reflect(nf,ne)*exp(-2.0_dp*elem_field(ne_length,ne)*prop_const(nf,ne)))
-          q_factor(nf,ne)=p_factor(nf,ne)*char_admit(nf,ne)
+          q_factor(nf,ne)=p_factor(nf,ne)*eff_admit(nf,ne)
         endif!neup
       enddo!ne
     enddo!nf
