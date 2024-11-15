@@ -85,7 +85,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
   character(len=60) :: sub_name
   logical :: vein_found=.False.
   integer :: vein_elem=0
-  integer, parameter :: num_freq = 101, num_vessels = 17, num_units = 2
+  integer, parameter :: num_freq = 101, num_vessels = 17
   integer :: i, j
   real :: freq(num_freq)
   character(len=5) :: vessel_names(num_vessels) = ["LUL_A", "LUL_V", "LLL_A", "LLL_V", "RUL_A", "RUL_V", "RLL_A", "RLL_V",&
