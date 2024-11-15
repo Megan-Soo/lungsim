@@ -322,8 +322,6 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       do i = 1, no_freq
         imped(i+1) = 10000.0/abs(eff_admit(i,min_ven+10))
       enddo
-      write(*,*) 'LUL_V:', imped(1), imped(2), imped(3)
-      pause
       write(10, *) " ""LUL_V"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !Calculating LLL_A impedances !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
