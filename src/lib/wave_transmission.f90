@@ -1054,7 +1054,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       do i = 1, no_freq
         imped(i+1) = atan2(dimag(p_factor(i,7)),real(p_factor(i,7), 8))+b(i)
       enddo
-      write(10, *) " ""LPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
+      write(10, *) " ""LPA_A_3"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !Calculating RPA phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1078,7 +1078,7 @@ subroutine evaluate_wave_transmission(grav_dirn,grav_factor,n_time,heartrate,a0,
       do i = 1, no_freq
         imped(i+1) = atan2(dimag(p_factor(i,10)),real(p_factor(i,10), 8))+b(i)
       enddo
-      write(10, *) " ""RPA_A"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
+      write(10, *) " ""RPA_A_3"": [", imped(1), ",", (imped(i),",",i=2,no_freq), imped(no_freq+1), "],"
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !Calculating RBS_A phase !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
