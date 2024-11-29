@@ -38,19 +38,19 @@ jobs:
             name: "macOS Monterey",
             build_type: "Release",
             os: macos-12,
-            gfortran: gfortran-12,
+            gfortran: "gfortran-12",
           }
         - {
             name: "macOS Ventura",
             build_type: "Release",
             os: macos-13,
-            gfortran: gfortran-13,
+            gfortran: "gfortran-13",
           }
         - {
             name: "macOS Sonoma",
             build_type: "Release",
             os: macos-14,
-            gfortran: gfortran-14,
+            gfortran: "gfortran-14",
           }
     steps:
 # Useful for debugging dll load issues.
