@@ -38,19 +38,19 @@ jobs:
             name: "macOS Monterey",
             build_type: "Release",
             os: macos-12,
-            gfortran: "gfortran-12",
+            gfortran: gfortran-12,
           }
         - {
             name: "macOS Ventura",
             build_type: "Release",
             os: macos-13,
-            gfortran: "gfortran-13",
+            gfortran: gfortran-13,
           }
         - {
             name: "macOS Sonoma",
             build_type: "Release",
             os: macos-14,
-            gfortran: "gfortran-14",
+            gfortran: gfortran-14,
           }
     steps:
 # Useful for debugging dll load issues.
@@ -216,7 +216,7 @@ jobs:
         cmake \
           -S lungsim \
           -B build-lungsim \
-          -D CMAKE_Fortran_COMPILER=${{( matrix.config.gfortran }} \
+          -D CMAKE_Fortran_COMPILER=${{ matrix.config.gfortran }} \
           -D AETHER_ENABLE_TESTS=FALSE \
           -D CMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
