@@ -19,9 +19,9 @@ jobs:
       matrix:
         config:
         - {
-            name: "Windows 2019 MSVC",
+            name: "Windows 2022 MSVC",
             build_type: "Release",
-            os: windows-2019,
+            os: windows-2022,
           }
         - {
             name: "Ubuntu 20.04",
@@ -33,12 +33,6 @@ jobs:
             build_type: "Release",
             super_lu: true,
             os: ubuntu-20.04,
-          }
-        - {
-            name: "macOS Monterey",
-            build_type: "Release",
-            os: macos-12,
-            gfortran: gfortran-12,
           }
         - {
             name: "macOS Ventura",
@@ -156,6 +150,11 @@ jobs:
       shell: bash
       run: sudo apt-get install libsuperlu-dev
 
+    - name: Install SWIG
+      if: runner.os == 'macOS'
+      shell: bash
+      run: brew install swig
+
     - name: Create virtual environment
       shell: cmake -P {0}
       id: create-venv
@@ -198,6 +197,7 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         cmake -S lungsim -B build-lungsim -D CMAKE_Fortran_COMPILER="%INTEL_COMPILER_BIN_PATH:\=/%/ifort.exe" -D AETHER_ENABLE_TESTS=FALSE -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
+
     - name: Generate build instructions - Linux
       shell: bash
       if: runner.os == 'Linux'
@@ -209,6 +209,7 @@ jobs:
           -D AETHER_ENABLE_TESTS=FALSE \
           -D CMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
+
     - name: Generate build instructions - macOS
       shell: bash
       if: runner.os == 'macOS'
@@ -220,6 +221,7 @@ jobs:
           -D AETHER_ENABLE_TESTS=FALSE \
           -D CMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
+
     - name: Build lungsim
       shell: cmake -P {0}
       run: |
@@ -240,6 +242,7 @@ jobs:
           message("::error::${error_message}")
           message(FATAL_ERROR "Build failed.")
         endif()
+
     - name: Test lungsim
       shell: bash
       run: |
