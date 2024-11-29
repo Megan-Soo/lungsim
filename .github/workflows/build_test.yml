@@ -214,7 +214,7 @@ jobs:
         cmake \
           -S lungsim \
           -B build-lungsim \
-          -D CMAKE_Fortran_COMPILER=gfortran-10 \
+          -D CMAKE_Fortran_COMPILER=$(which gfortran) \
           -D AETHER_ENABLE_TESTS=FALSE \
           -D CMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
