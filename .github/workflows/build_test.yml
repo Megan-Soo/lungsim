@@ -201,6 +201,12 @@ jobs:
           -D AETHER_ENABLE_TESTS=FALSE \
           -D CMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -D Python_EXECUTABLE=${{ steps.create-venv.outputs.python_exe }}
+    - name: Install gfortran
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew update
+        brew install gfortran
     - name: Generate build instructions - macOS
       shell: bash
       if: runner.os == 'macOS'
