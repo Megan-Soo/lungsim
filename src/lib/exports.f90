@@ -780,6 +780,8 @@ contains
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
     character(len=300) :: writefile
     logical :: FIRST_NODE
+    integer, parameter :: nu_vol_min = 1 ! (MS)
+    integer, parameter :: nu_vol_max = 2 ! (MS)
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE
@@ -803,7 +805,7 @@ contains
           !*** Write the field information
           VALUE_INDEX=1
           if(FIRST_NODE)THEN
-             write(10,'( '' #Fields=5'' )')
+             write(10,'( '' #Fields=7'' )')
              write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
              do nj=1,3
                 if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
@@ -816,7 +818,7 @@ contains
              write(10,'('' 2) flow, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
-             !VALUE_INDEX=VALUE_INDEX+1
+             VALUE_INDEX=VALUE_INDEX+1
              !Volume
              !write(10,'('' 3) volume, field, rectangular cartesian, #Components=1'')')
              !write(10,'(2X,''1.  '')',advance="no")
@@ -840,6 +842,16 @@ contains
              write(10,'('' 7) tidal volume, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             VALUE_INDEX=VALUE_INDEX+1
+             !Min volume (MS)
+             write(10,'('' 8) min volume, field, rectangular cartesian, #Components=1'')')
+             write(10,'(2X,''1.  '')',advance="no")
+             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             VALUE_INDEX=VALUE_INDEX+1
+             !Max volume (MS)
+             write(10,'('' 9) max volume, field, rectangular cartesian, #Components=1'')')
+             write(10,'(2X,''1.  '')',advance="no")
+             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
@@ -852,6 +864,8 @@ contains
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_comp,nolist))  !Compliance (end exp)
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_pe,nolist))    !Recoil pressure
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vt,nolist))    !Tidal volume
+          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmin,nolist))    !Min volume (MS)
+          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmax,nolist))    !Max volume (MS)
           FIRST_NODE=.FALSE.
           np_last=np
        enddo !nolist (np)

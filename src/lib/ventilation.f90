@@ -28,8 +28,8 @@ module ventilation
   !Interfaces
   private
   public evaluate_vent
-  public evaluate_uniform_flow
-  public two_unit_test
+  public evaluate_uniform_flow ! (MS) not used
+  public two_unit_test ! (MS) not used
   public sum_elem_field_from_periphery
 
   real(dp),parameter,private :: gravity = 9.81e3_dp         ! mm/s2
@@ -118,9 +118,10 @@ contains
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
     undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
+    ! (MS) 0.5 * (respiratory vol/total num of units appended to the root element aka tree opening, ie total num units in the lung model)
 
 !!! calculate the total model volume
-    call volume_of_mesh(init_vol,volume_tree)
+    call volume_of_mesh(init_vol,volume_tree) ! (MS) init_vol = tree vol (intrathoracic deadspace) + respiratory vol
 
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
@@ -129,13 +130,13 @@ contains
     write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
-    unit_field(nu_dpdt,1:num_units) = 0.0_dp
+    unit_field(nu_dpdt,1:num_units) = 0.0_dp ! (MS) initialise field for pressure step
 
 !!! calculate the compliance of each tissue unit
     call tissue_compliance(chest_wall_compliance,undef)
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
-    call update_pleural_pressure(ppl_current) !calculate new pleural pressure
-    pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
+    call update_pleural_pressure(ppl_current) !calculate new pleural pressure ! (MS) average Pleural Pressure
+    pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units ! transmural pressure = average pleural pressure across all units
 
     chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
     Pcw = (chestwall_restvol - init_vol)/chest_wall_compliance
@@ -482,7 +483,11 @@ contains
        ppl_current = ppl_current - unit_field(nu_pe,nunit) + &
             node_field(nj_aw_press,np2)
     enddo !noelem
-    ppl_current = ppl_current/num_units
+    ! (MS) Calculate total Pleural Pressure
+    ! for i in range(num_units):
+    !	Ppl_unit = Palv_unit - Pel_unit
+    !	Ppl_current = Ppl_current + Ppl_unit
+    ppl_current = ppl_current/num_units ! (MS) Calculate mean Pleural Pressure across all nodes
 
     call enter_exit(sub_name,2)
 
@@ -545,7 +550,7 @@ contains
     do nunit = 1,num_units
        ne = units(nunit)
        !calculate a compliance for the tissue unit
-       ratio = unit_field(nu_vol,nunit)/undef
+       ratio = unit_field(nu_vol,nunit)/undef ! ratio of unit volume to a reference undeformed volume, which was initialised using a linear vol distribution gradient
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
        exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
@@ -564,7 +569,6 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine tissue_compliance
-
 
 !!!#############################################################################
 
@@ -605,22 +609,31 @@ contains
     ! Local variables
     integer :: ne,np,nunit
     character(len=60) :: sub_name
+    real(dp) :: current_volume ! (MS)
 
     ! --------------------------------------------------------------------------
 
     sub_name = 'update_unit_volume'
     call enter_exit(sub_name,1)
 
-    do nunit = 1,num_units
-       ne = units(nunit)
-       np = elem_nodes(2,ne)
+    do nunit = 1,num_units ! (MS) for nunit in range(num_units):
+       ne = units(nunit)   ! (MS) ne = units[nunit] # Element index of the unit
+       np = elem_nodes(2,ne) ! (MS) np = elem_nodes[ne] # node number of element ne
        ! update the volume of the lumped tissue unit
-       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* &
+       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* & ! (MS) time step * volumetric flow rate
             elem_field(ne_Vdot,ne) !in mm^3
-       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
+       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume (MS) if volumetric flow rate of first element is negative (ie expiratory flow), don't update
           unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
        endif
+       
+       ! Store the current volume for readability ! (MS)
+       current_volume = unit_field(nu_vol, nunit) ! (MS)
+
+       ! Track max and min volumes ! (MS)
+       unit_field(nu_vmax, nunit) = max(unit_field(nu_vmax, nunit), current_volume) ! (MS)
+       unit_field(nu_vmin, nunit) = min(unit_field(nu_vmin, nunit), current_volume) ! (MS)
+       
     enddo !nunit
 
     call enter_exit(sub_name,2)

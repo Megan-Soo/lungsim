@@ -32,7 +32,7 @@ module indices
   ! indices for unit_field
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
-       nu_vd=0,nu_perf=0,nu_blood_press=0
+       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_vmin=0,nu_vmax=0 ! (MS) added nu_vmin=0,nu_vmax=0
   !indices for gas exchange field
   ! indices for gasex_field
   integer,parameter :: num_gx = 12
@@ -65,7 +65,8 @@ module indices
   public num_nu,nu_vol,nu_comp, nu_conc2,nu_Vdot0,nu_Vdot1, &
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
        nu_conc1,nu_vent,nu_vd,&
-       nu_perf,nu_blood_press
+       nu_perf,nu_blood_press,&
+       nu_vmin,nu_vmax ! (MS) added nu_vmin,nu_vmax
   
   public num_gx, ng_p_alv_o2,ng_p_alv_co2,ng_p_ven_o2,ng_p_ven_co2, &
        ng_p_cap_o2, ng_p_cap_co2,ng_source_o2,ng_source_co2, &
@@ -159,7 +160,6 @@ contains
     nu_conc1=13
     nu_conc2=14
     
-    
     call enter_exit(sub_name,2)
   end subroutine exchange_indices
   
@@ -228,7 +228,8 @@ contains
     ne_vd_bel = 9
     ne_vol_bel = 10
     ! indices for unit_field
-    num_nu=10
+    ! num_nu=10 ! (MS) num_nu is number of allocations to make in unit_field. 
+    num_nu=12
     nu_vol=1
     nu_comp=2
     nu_Vdot0=3
@@ -239,6 +240,8 @@ contains
     nu_vt=8
     nu_air_press=9
     nu_vent=10
+    nu_vmin=11 ! (MS) added
+    nu_vmax=12 !(MS) added
     call enter_exit(sub_name,2)
   end subroutine ventilation_indices
 

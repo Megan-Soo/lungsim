@@ -25,7 +25,7 @@ module geometry
 
   !Interfaces
   private
-  public add_mesh
+  public add_mesh ! (MS) not used
   public add_matching_mesh
   public append_units
   public coord_at_xi
@@ -415,7 +415,7 @@ contains
 
     unit_field=0.0_dp
     units=0
-    elem_units_below(1:num_elems) = 0 !initialise the number of terminal units below a branch
+    elem_units_below(1:num_elems) = 0 !initialise the number of terminal units below a branch ! (MS) to calc flow distal to a branch
 
     nu=0
     do ne=1,num_elems
@@ -1221,7 +1221,7 @@ contains
        endif
     end do read_number_of_vertices
 
-    !.....get the total number of triangles
+    !.....get the total number of triangles ! (MS) 'element face' in the .ply text file
     num_triangles = 0
     read_number_of_triangles : do !define a do loop name
        read(unit=10, fmt="(a)", iostat=ierror) string
@@ -1241,10 +1241,10 @@ contains
     if(allocated(vertex_xyz)) deallocate(vertex_xyz)
     allocate(vertex_xyz(3,num_vertices))
 
-    do nv = 1,num_vertices
+    do nv = 1,num_vertices ! (MS) loop through and read coordinates of mesh vertices
        read(unit=10, fmt=*) vertex_xyz(1,nv),vertex_xyz(2,nv),vertex_xyz(3,nv)
     enddo
-    do nt = 1,num_triangles
+    do nt = 1,num_triangles ! (MS) list of faces comes directly after list of vertices in .ply txt file, so just cont. reading lines
        read(unit=10, fmt=*) i,triangle(1,nt),triangle(2,nt),triangle(3,nt)
     enddo
     triangle = triangle + 1 ! offset all vertices by 1 because indexing starts from zero
@@ -3835,12 +3835,12 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine evaluate_ordering
-
+  
 !!!#############################################################################
 
   subroutine set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
     !*set_initial_volume:* assigns a volume to terminal units appended on a
-    ! tree structure based on an assumption of a linear gradient in the
+    ! tree structure based on **IMAGE-DERIVED TISSUE DENSITY GRADIENT** in the
     ! gravitational direction with max, min, and COV values defined.
 
     integer,intent(in) :: Gdirn
@@ -3862,8 +3862,8 @@ contains
     call volume_of_mesh(volume_estimate,volume_of_tree)
 
     random_number=-1.1_dp
-
-    Vmax = Rmax * (total_volume-volume_estimate)/elem_units_below(1)
+    ! (MS) total_volume = V_FRC = total vol of acini units + vol of 1D tree
+    Vmax = Rmax * (total_volume-volume_estimate)/elem_units_below(1) ! elem_units_below(1): the total no. of terminal units connected to the root element (ie the 1st element). So it's really just the total num of acini units in the whole lung model
     Vmin = Rmin * (total_volume-volume_estimate)/elem_units_below(1)
 
 !!! for each elastic unit find the maximum and minimum coordinates in the Gdirn direction
@@ -3881,13 +3881,13 @@ contains
 
 !!! for each elastic unit allocate a size based on a gradient in the Gdirn direction, and
 !!! perturb by a user-defined COV. This should be calling a random number generator.
-    do nunit=1,num_units
+    do nunit=1,num_units ! (MS) for nunit in range(num_units):
        ne=units(nunit)
        np2=elem_nodes(2,ne) !end node
-       Xi=(node_xyz(Gdirn,np2)-min_z)/range_z
+       Xi=(node_xyz(Gdirn,np2)-min_z)/range_z ! (MS) a fraction of the range btwn min & max positions along the gravitational axis
        random_number=random_number+0.1_dp
        if(random_number.GT.1.0_dp) random_number=-1.1_dp
-       unit_field(nu_vol,nunit)=(Vmax*Xi+Vmin*(1.0_dp-Xi))*(1.0_dp+COV*random_number)
+       unit_field(nu_vol,nunit)=(Vmax*Xi+Vmin*(1.0_dp-Xi))*(1.0_dp+COV*random_number)  ! (MS) assign a unit volume to the nunit
        unit_field(nu_vt,nunit)=0.0_dp !initialise the tidal volume to a unit
     enddo !nunit
 
@@ -3896,6 +3896,9 @@ contains
     factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
     do nunit=1,num_units
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
+       ! (MS) added: initialise min & max vol of unit
+       unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
+       unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
     enddo
 
     write(*,'('' Number of elements is '',I5)') num_elems
@@ -3929,22 +3932,22 @@ contains
     vol_anat = elem_field(ne_vol,1:num_elems) !initialise to branch volume
     vol_below = elem_field(ne_vol,1:num_elems) !initialise to branch volume
 
-    do nunit = 1,num_units
+    do nunit = 1,num_units ! (MS) for nunit in range(num_units):
        ne = units(nunit)
        if(ne.ne.0) vol_below(ne) = vol_below(ne) + unit_field(nu_vol,nunit) !add elastic unit volume
     enddo !nunit
-
+    
     do ne = num_elems,2,-1
        ne0 = elem_cnct(-1,1,ne)
 !!! don't include the respiratory airways (already included via lumped units). multiply
-!!! by the element type (0 for respiratory) to account for this
+!!! by the element type (0 for respiratory) to account for this ! (MS) element type is no_type
        vol_anat(ne0) = vol_anat(ne0) + dble(elem_symmetry(ne))*dble(elem_ordrs(no_type,ne))*vol_anat(ne)
        vol_below(ne0) = vol_below(ne0) + dble(elem_symmetry(ne))*dble(elem_ordrs(no_type,ne))*vol_below(ne)
     enddo !noelem
     elem_field(ne_vd_bel,:) = vol_anat(:)
     elem_field(ne_vol_bel,:) = vol_below(:)
-    volume_model = elem_field(ne_vol_bel,1)
-    volume_tree = elem_field(ne_vd_bel,1)
+    volume_model = elem_field(ne_vol_bel,1) ! (MS) vol of acini units appended to root elem, ie airway opening, thus volume_model is total vol of all units
+    volume_tree = elem_field(ne_vd_bel,1) ! (MS) vol of 1D tree (conducting airway)
 
     deallocate(vol_anat)
     deallocate(vol_below)

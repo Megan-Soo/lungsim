@@ -323,7 +323,7 @@ contains
        map_seed_to_elem(nd_min)=0
        map_seed_to_space(nd_min) = ne-1
        if(to_export) then
-         write(40,*) nd_min,ne-1
+         write(40,*) nd_min,ne-1!,node_xyz(1,nd_min),node_xyz(2,nd_min),node_xyz(3,nd_min),326 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
        endif
 
     endif
@@ -359,7 +359,7 @@ contains
        map_seed_to_elem(nd_min)=0
        map_seed_to_space(nd_min) = ne ! recording element number
        if(to_export) then
-         write(40,*) nd_min,ne
+         write(40,*) nd_min,ne!,node_xyz(1,nd_min),node_xyz(2,nd_min),node_xyz(3,nd_min),362 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
        endif
 
     endif
@@ -711,7 +711,7 @@ contains
           local_parent(N)=0
           num_terminal=num_terminal+1
           if(to_export) then
-            write(40,*) nd_min,ne_min
+            write(40,*) nd_min,ne_min!,node_xyz(1,nd_min)!,node_xyz(2,nd_min),node_xyz(3,nd_min),713 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
           endif
 
        else if(num_seeds_from_elem(ne_min).eq.1)then
@@ -722,7 +722,7 @@ contains
                 N_ELM_TEMP=N_ELM_TEMP-1
                 num_terminal=num_terminal+1
                 if(to_export) then
-                  write(40,*) nd,ne_min
+                  write(40,*) nd,ne_min!,node_xyz(1,nd)!,node_xyz(2,nd),node_xyz(3,nd),725 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
                 endif
              endif
           enddo !nd
@@ -855,7 +855,8 @@ contains
        !!! export vertices as nodes
        writefile = trim(filename)//'.txt'
        open(40, file = writefile, status='replace')
-       write(40,'('' Data point number          Terminal element number'')')
+       write(40,'('' Data point number          Terminal element number'')') 
+       !write(40,'('' Data point number          Terminal element number          Coordinates (xyz)          Line'')') ! (MS)
     endif
 
 
@@ -968,7 +969,7 @@ contains
     real(dp) :: distance_limit = 300.0_dp,length_parent
 
     logical :: make_branch,enough_points(2),internal, &
-         limit_branching_angle = .true., &  ! option to restrict branch angle
+         limit_branching_angle = .false., &  ! option to restrict branch angle
          limit_branching_plane = .false.    ! option to restrict angle between branching planes
 
     character(len=60) :: sub_name
@@ -1131,7 +1132,7 @@ contains
                          map_seed_to_space(nd_min) = ne ! recording element number
 
                          if(to_export) then
-                           write(40,*) nd_min,ne
+                           write(40,*) nd_min,ne!,node_xyz(1,nd_min),node_xyz(2,nd_min),node_xyz(3,nd_min), 1134 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
                          endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np)
@@ -1176,7 +1177,7 @@ contains
                          map_seed_to_space(nd_min) = ne ! recording element number
 
                          if(to_export) then
-                           write(40,*) nd_min,ne
+                           write(40,*) nd_min,ne!,node_xyz(1,nd_min),node_xyz(2,nd_min),node_xyz(3,nd_min),1179 ! (MS) add coordinates of terminal points, node_xyz(1:3,np)
                          endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np-1)
