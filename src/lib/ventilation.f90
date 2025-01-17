@@ -609,7 +609,7 @@ contains
     ! Local variables
     integer :: ne,np,nunit
     character(len=60) :: sub_name
-    real(dp) :: current_volume ! (MS)
+    real(dp) :: current_volume, min_volume, max_volume ! (MS) added
 
     ! --------------------------------------------------------------------------
 
@@ -626,11 +626,19 @@ contains
           unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
        endif
+
+       ! Initialize values before assessing each unit
+       min_volume = 1.0E30   ! Large value to ensure the first comparison sets it correctly
+       max_volume = -1.0E30  ! Small value to ensure the first comparison sets it correctly
        
        ! Store the current volume for readability ! (MS)
        current_volume = unit_field(nu_vol, nunit) ! (MS)
 
-       ! Track max and min volumes ! (MS)
+       ! (MS) added: Track max and min volumes of each unit at each step in a breath.
+       ! (MS) each breath overwrites the max&min vol for each unit from the previous breath. 
+       ! (MS) Thus, the final values after complete ventilation will be min&max vols of each unit in the LAST breath
+       if (current_volume<min_volume) min_volume = current_volume
+       if (current_volume>max_volume) max_volume = current_volume
        unit_field(nu_vmax, nunit) = max(unit_field(nu_vmax, nunit), current_volume) ! (MS)
        unit_field(nu_vmin, nunit) = min(unit_field(nu_vmin, nunit), current_volume) ! (MS)
        
