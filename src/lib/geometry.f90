@@ -3840,7 +3840,7 @@ contains
 
   subroutine set_initial_volume(Gdirn,COV,total_volume,Rmax,Rmin)
     !*set_initial_volume:* assigns a volume to terminal units appended on a
-    ! tree structure based on **IMAGE-DERIVED TISSUE DENSITY GRADIENT** in the
+    ! tree structure based on an assumption of a linear gradient in the
     ! gravitational direction with max, min, and COV values defined.
 
     integer,intent(in) :: Gdirn
@@ -3850,6 +3850,8 @@ contains
     real(dp) ::  factor_adjust,max_z,min_z,random_number,range_z,&
          volume_estimate,volume_of_tree,Vmax,Vmin,Xi
     character(len=60) :: sub_name
+
+    real(dp) :: vol_bel_upper ! (MS) added
 
     ! --------------------------------------------------------------------------
 
@@ -3863,9 +3865,19 @@ contains
 
     random_number=-1.1_dp
     ! (MS) total_volume = V_FRC = total vol of acini units + vol of 1D tree
-    Vmax = Rmax * (total_volume-volume_estimate)/elem_units_below(1) ! elem_units_below(1): the total no. of terminal units connected to the root element (ie the 1st element). So it's really just the total num of acini units in the whole lung model
-    Vmin = Rmin * (total_volume-volume_estimate)/elem_units_below(1)
+    ! Vmax = Rmax * (total_volume-volume_estimate)/elem_units_below(1) ! (MS) vol of each unit = (PFT vol - modeled volume)/num terminal units
+    ! Vmin = Rmin * (total_volume-volume_estimate)/elem_units_below(1)
 
+    ! (MS) added: assume imaged lung volume (FRC) includes airways modelled beyond upper_airway tree + terminal units
+    vol_bel_upper = elem_field(ne_vd_bel,10)+elem_field(ne_vd_bel,12)&
+                    +elem_field(ne_vd_bel,13)+elem_field(ne_vd_bel,8)&
+                    +elem_field(ne_vd_bel,9) ! hardcoded terminal elems of upper airway
+    write(*,'('' Vol bel upper = '',F8.3,'' ml'')') vol_bel_upper/1000
+    write(*,'('' volume_estimate = '',F8.3,'' L'')') volume_estimate/1.0e+6_dp
+    write(*,'('' volume_of_tree = '',F8.3,'' L'')') volume_of_tree/1.0e+6_dp
+    Vmax = Rmax * (total_volume-vol_bel_upper)/elem_units_below(1)
+    Vmin = Rmin * (total_volume-vol_bel_upper)/elem_units_below(1)
+    
 !!! for each elastic unit find the maximum and minimum coordinates in the Gdirn direction
     max_z=-1.0e+6_dp
     min_z=1.0e+6_dp
@@ -3946,7 +3958,7 @@ contains
     enddo !noelem
     elem_field(ne_vd_bel,:) = vol_anat(:)
     elem_field(ne_vol_bel,:) = vol_below(:)
-    volume_model = elem_field(ne_vol_bel,1) ! (MS) vol of acini units appended to root elem, ie airway opening, thus volume_model is total vol of all units
+    volume_model = elem_field(ne_vol_bel,1) ! (MS) total vol of branches & acini units appended to root elem, ie airway opening
     volume_tree = elem_field(ne_vd_bel,1) ! (MS) vol of 1D tree (conducting airway)
 
     deallocate(vol_anat)

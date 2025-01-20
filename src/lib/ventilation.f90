@@ -80,6 +80,8 @@ contains
     logical :: CONTINUE,converged
 
     character(len=60) :: sub_name
+    
+    real(dp) :: vol_bel_upper ! (MS) added
 
     ! --------------------------------------------------------------------------
 
@@ -117,8 +119,14 @@ contains
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
-    undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
-    ! (MS) 0.5 * (respiratory vol/total num of units appended to the root element aka tree opening, ie total num units in the lung model)
+    !undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1)) ! (MS) init_vol == volume_of_tree
+    
+    ! (MS) added: assume FRC vol includes vol of branches beyond upper_airway + num units
+    vol_bel_upper = elem_field(ne_vd_bel,10)+elem_field(ne_vd_bel,12)&
+                    +elem_field(ne_vd_bel,13)+elem_field(ne_vd_bel,8)&
+                    +elem_field(ne_vd_bel,9) ! hardcoded terminal elems of upper airway
+    write(*,'('' Vol bel upper airway = '',F8.3,'' ml'')') vol_bel_upper/1000
+    undef = refvol * (FRC*1.0e+6_dp-vol_bel_upper)/dble(elem_units_below(1))
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree) ! (MS) init_vol = tree vol (intrathoracic deadspace) + respiratory vol
@@ -126,8 +134,9 @@ contains
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
-         (init_vol-volume_tree)/1.0e+6_dp !in L
-    write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
+         !(init_vol-volume_tree)/1.0e+6_dp !in L
+         FRC-(vol_bel_upper/1.0e+6_dp) !in L ! (MS) assume respiratory volume to be the FRC volume from imaging
+    write(*,'('' Total lung model volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp ! (MS) initialise field for pressure step
