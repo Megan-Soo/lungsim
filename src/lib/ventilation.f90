@@ -82,6 +82,8 @@ contains
     character(len=60) :: sub_name
     
     real(dp) :: vol_bel_upper ! (MS) added
+    real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
+    integer :: num_steps, row ! (MS) added: for indexing unit_dvdt array
 
     ! --------------------------------------------------------------------------
 
@@ -105,6 +107,11 @@ contains
        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
+    ! (MS) number steps per cycle = T_interval/dt. But for now just sample every third step: sampling_interval = dt*3
+    num_steps = T_interval/dt
+    sampling_interval = dt*3
+    allocate(unit_dvdt(num_steps,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
+
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
     press_in_total = press_in
     
@@ -126,7 +133,8 @@ contains
                     +elem_field(ne_vd_bel,13)+elem_field(ne_vd_bel,8)&
                     +elem_field(ne_vd_bel,9) ! hardcoded terminal elems of upper airway
     write(*,'('' Vol bel upper airway = '',F8.3,'' ml'')') vol_bel_upper/1000
-    undef = refvol * (FRC*1.0e+6_dp-vol_bel_upper)/dble(elem_units_below(1))
+    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added:
+    ! (MS) assume negligible conducting airways in segmented lung vol after removing major airways & vessels
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree) ! (MS) init_vol = tree vol (intrathoracic deadspace) + respiratory vol
@@ -179,6 +187,7 @@ contains
           unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
           sum_dpmus = 0.0_dp
           sum_dpmus_ei = 0.0_dp
+          row = 0 ! (MS) added: reset indexing for unit_dvdt array for each new breath (ultimately collect last breath cycle data)
        endif
 
 !!! solve for a single breath (for time up to endtime)
@@ -193,6 +202,15 @@ contains
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step)
+               
+          ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
+          if (abs(mod(ttime, sampling_interval)) < sampling_tolerance) then ! (MS) Check if the current time is close to a multiple of the sampling interval
+             do nunit = 1,num_units ! (MS) for nunit in range(num_units):
+                unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
+                row = row+1
+             enddo
+          endif
+              
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
@@ -627,11 +645,11 @@ contains
 
     do nunit = 1,num_units ! (MS) for nunit in range(num_units):
        ne = units(nunit)   ! (MS) ne = units[nunit] # Element index of the unit
-       np = elem_nodes(2,ne) ! (MS) np = elem_nodes[ne] # node number of element ne
+       np = elem_nodes(2,ne) ! (MS) np = elem_nodes[ne] # distal node number of element ne
        ! update the volume of the lumped tissue unit
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* & ! (MS) time step * volumetric flow rate
             elem_field(ne_Vdot,ne) !in mm^3
-       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume (MS) if volumetric flow rate of first element is negative (ie expiratory flow), don't update
+       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume !(MS) if volumetric flow rate of first element is negative (ie expiratory flow), don't update
           unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
        endif

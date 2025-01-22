@@ -780,8 +780,6 @@ contains
     integer :: len_end,ne,nj,NOLIST,np,np_last,VALUE_INDEX
     character(len=300) :: writefile
     logical :: FIRST_NODE
-    integer, parameter :: nu_vol_min = 1 ! (MS)
-    integer, parameter :: nu_vol_max = 2 ! (MS)
 
     if(index(EXNODEFILE, ".exnode")> 0) then !full filename is given
        writefile = EXNODEFILE
@@ -874,6 +872,46 @@ contains
 
   end subroutine export_terminal_solution
 
+!
+!##############################################################################
+!
+
+  subroutine export_dvdt(TXTFILE) ! (MS) added: export vol of each unit across the last breath cycle
+!!! Parameters
+    character(len=MAX_FILENAME_LEN),intent(in) :: TXTFILE
+
+!!! Local Variables
+    integer :: nolist, i ,np,np_last, ne
+    character(len=300) :: writefile
+    
+    if(index(TXTFILE, ".txt")> 0) then !full filename is given
+       writefile = TXTFILE
+    else ! need to append the correct filename extension
+       writefile = trim(TXTFILE)//'.txt'
+    endif
+    
+    if(num_units.GT.0) THEN
+       open(10, file=TXTFILE, status='replace')
+       np_last=1
+       !*** Exporting Terminal Solution
+       do nolist=1,num_units
+          if(nolist.GT.1) np_last = np
+          ne=units(nolist)
+          np=elem_nodes(2,ne)
+          !**     write Node number
+          write(10,'(1X,''Node: '',I12)') np ! for each node,
+          do i = 1, size(unit_dvdt, 1)
+             if (i == 1) then
+                write(*, "(F6.2)", advance="no") unit_dvdt(i, nolist)
+             else
+                write(*, "(2X, F6.2)", advance="no") unit_dvdt(i, nolist) ! add two spaces (2X) before next value
+             end if
+          enddo
+       enddo
+       close(10)
+    endif
+
+  end subroutine export_dvdt
 !
 !##############################################################################
 !

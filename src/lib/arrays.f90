@@ -13,9 +13,9 @@ module arrays
   use precision
   
   implicit none
-
+  ! (MS) these are variables that are shareable across subroutines/scripts
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
-       num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen
+       num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen, num_steps ! (MS) added: num_steps to make it publicly accessible
 
   integer,allocatable :: nodes(:) !allocated in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
@@ -64,6 +64,7 @@ module arrays
   real(dp),allocatable :: node_xyz_2d(:,:,:,:)
   real(dp),allocatable :: gasex_field(:,:) !gasexchange specific fields
   real(dp),allocatable :: unit_field(:,:) !properties of elastic units
+  real(dp),allocatable :: unit_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
   real(dp),allocatable :: vertex_xyz(:,:)
   real(dp),allocatable :: node_field(:,:)
   real(dp),allocatable :: scale_factors_2d(:,:)
@@ -145,7 +146,8 @@ module arrays
        elasticity_param, two_parameter, three_parameter, four_parameter, all_admit_param, &
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
-       SparseVal, RHS, prq_solution, solver_solution, FIX
+       SparseVal, RHS, prq_solution, solver_solution, FIX, &
+       unit_dvdt, num_steps ! (MS) added unit_dvdt. allocated in evaluate_vent
 
 contains
   subroutine set_node_field_value(row, col, value)
