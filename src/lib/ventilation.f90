@@ -125,7 +125,7 @@ contains
     call volume_of_mesh(init_vol,volume_tree)
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
-    call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
+    !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
     !undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1)) ! (MS) init_vol == volume_of_tree
     
     ! (MS) added: assume FRC vol includes vol of branches beyond upper_airway + num units
@@ -133,6 +133,8 @@ contains
                     +elem_field(ne_vd_bel,13)+elem_field(ne_vd_bel,8)&
                     +elem_field(ne_vd_bel,9) ! hardcoded terminal elems of upper airway
     write(*,'('' Vol bel upper airway = '',F8.3,'' ml'')') vol_bel_upper/1000
+    
+    ! initial unit volumes at FRC alr set in py script w/ define_init_volume(node.ipfiel)
     undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added:
     ! (MS) assume negligible conducting airways in segmented lung vol after removing major airways & vessels
 

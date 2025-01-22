@@ -52,6 +52,7 @@ module geometry
   public make_2d_vessel_from_1d
   public reallocate_node_elem_arrays
   public set_initial_volume
+  public define_init_volume ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -3920,6 +3921,90 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine set_initial_volume
+
+!!!#############################################################################
+
+  subroutine define_init_volume(FIELDFILE)
+    !*define_init_volume:* reads in a volume field associated with a
+    ! terminal unit and assigns initial volume information to each unit
+
+    character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
+
+    !     Local Variables
+    integer :: ierror,np,np_global
+    logical :: node_based,versions
+    real(dp) :: vol
+    character(LEN=132) :: ctemp1
+    character(len=250) :: readfile
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'define_init_volumes'
+    call enter_exit(sub_name,1)
+
+    versions = .TRUE.
+
+    if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
+       readfile = FIELDFILE(1:250)
+    else ! need to append the correct filename extension
+       readfile = trim(FIELDFILE)//'.ipfiel'
+    endif
+
+    open(10, file=readfile, status='old')
+
+!!! check whether reading in a node-based or element-based field
+    check_type : do
+       read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !read a line into ctemp1
+       if(index(ctemp1, "of elem")> 0) then ! element-based field
+          node_based = .false.
+          ! num_elem_rad = get_final_integer(ctemp1) !get global element number
+          exit check_type
+       else if(index(ctemp1, "of node")> 0) then ! node-based field
+          node_based = .true.
+          exit check_type
+       endif
+    enddo check_type
+
+    if(node_based)then
+       !.....check whether versions are prompted (>1)
+       read_versions : do !define a do loop name
+          read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !read a line into ctemp1
+          if(index(ctemp1, "different")> 0) then !keyword "different" is found
+             if(index(ctemp1, " N")> 0) then !keyword " N" is found
+                versions=.false.
+             endif
+             exit read_versions !exit the named do loop
+          endif
+       end do read_versions
+
+       np = 0
+       !.....read the coordinate, derivative, and version information for each node.
+       read_a_node : do !define a do loop name
+          !.......read node number
+          read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+          if(index(ctemp1, "Node")> 0) then
+             np_global = get_final_integer(ctemp1) !get global node number
+             ! find the corresponding local node number
+             call get_local_node(np_global,np) ! get local node np for global node
+             ! read field value for that node
+             read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+             read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+             if(index(ctemp1, "version number")>0) then
+                read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+             endif
+             if(index(ctemp1, "value")> 0) then
+                vol = get_final_real(ctemp1)
+                unit_field(nu_vol,np) = vol ! assign initial volume for that node
+             endif
+          endif !index
+          if(np.ge.num_nodes) exit read_a_node
+       end do read_a_node
+    endif
+
+    call enter_exit(sub_name,2)
+
+  end subroutine define_init_volume
 
 !!!#############################################################################
 

@@ -28,6 +28,7 @@ module exports
        export_node_field, &
        export_elem_field, &
        export_terminal_solution, &
+       export_dvdt, & ! (MS) added subroutine
        export_terminal_perfusion,&
        export_terminal_ssgexch, &
        export_triangle_elements, &
