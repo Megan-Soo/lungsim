@@ -414,7 +414,7 @@ contains
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
 
-    unit_field=0.0_dp
+    unit_field=0.0_dp ! (MS) set all values in array to zero
     units=0
     elem_units_below(1:num_elems) = 0 !initialise the number of terminal units below a branch ! (MS) to calc flow distal to a branch
 
@@ -433,6 +433,8 @@ contains
        elem_units_below(ne0) = elem_units_below(ne0) &
             + elem_units_below(ne)*elem_symmetry(ne)
     enddo !ne
+
+    write(*,'(" Size of units: ",I0)') size(units)
 
     call enter_exit(sub_name,2)
 
@@ -3931,8 +3933,7 @@ contains
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
 
     !     Local Variables
-    integer :: ierror,np
-    logical :: node_based,versions
+    integer :: ierror,ne_read,ne,num_elements,nunit
     real(dp) :: vol
     character(LEN=132) :: ctemp1
     character(len=250) :: readfile
@@ -3943,38 +3944,45 @@ contains
     sub_name = 'define_init_volume'
     call enter_exit(sub_name,1)
 
-    versions = .TRUE.
-
     if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
        readfile = FIELDFILE(1:250)
     else ! need to append the correct filename extension
        readfile = trim(FIELDFILE)//'.ipfiel'
-    endif
-
+    endif    
+    
     open(10, file=readfile, status='old')
-
-    np = 0
-    !.....read the coordinate, derivative, and version information for each node.
-    read_a_node : do !define a do loop name
-       !.......read node number
+    
+    read_number_of_elements : do
        read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-       if(index(ctemp1, "Node")> 0) then
-          np = get_final_integer(ctemp1) !get global node number
+       if(index(ctemp1, "elements")> 0) then
+          num_elements = get_final_integer(ctemp1) !return the final integer
+          exit read_number_of_elements
+       endif
+    end do read_number_of_elements
+    print *, 'num_elements = ', num_elements
+    
+    ne_read = 0
 
-          ! find the corresponding local node number
-          ! call get_local_node(np_global,np) ! get local node np for global node
-          !!! (MS): won't spend time looking into subroutine get_local_node. will map the correct node numbers externally
-
-          ! read field value for that node
-          read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-          if(index(ctemp1, "value")> 0) then
-             vol = get_final_real(ctemp1)
-             unit_field(nu_vol,np) = vol ! assign initial volume for that node
-             !write(*,'(" Node ",I6,":",F6.2)') np, vol
-          endif
-       endif !index
-       if(np.ge.num_nodes) exit read_a_node
-    end do read_a_node
+    !.....read the coordinate, derivative, and version information for each node.
+    read_an_element : do !define a do loop name
+       !.......read element number
+       read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+       if(index(ctemp1, "Element")> 0) then
+          ne_read = get_final_integer(ctemp1) !get global node number
+          print *, 'Read Element number: ', ne_read
+          do nunit=1,num_units ! (MS) for nunit in range(num_units):
+             ne=units(nunit)
+             if (ne_read == ne) then
+                read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+                if(index(ctemp1, "value")> 0) then
+                unit_field(nu_vol,nunit) = get_final_real(ctemp1) ! get last real value in string ctemp1
+                print *, 'Init vol = ', unit_field(nu_vol,nunit)
+                endif
+             endif
+          enddo
+       endif
+       if(ne.ge.num_elements) exit read_an_element
+    end do read_an_element
 
     close(10)
 
