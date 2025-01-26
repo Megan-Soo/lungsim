@@ -402,7 +402,7 @@ contains
 
     num_units = 0
     do ne=1,num_elems
-       if(elem_cnct(1,0,ne).eq.0)THEN
+       if(elem_cnct(1,0,ne).eq.0)THEN ! (MS) if found a terminal element
           num_units=num_units+1
        endif
     enddo
@@ -3931,7 +3931,7 @@ contains
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
 
     !     Local Variables
-    integer :: ierror,np,np_global
+    integer :: ierror,np
     logical :: node_based,versions
     real(dp) :: vol
     character(LEN=132) :: ctemp1
@@ -3940,7 +3940,7 @@ contains
 
     ! --------------------------------------------------------------------------
 
-    sub_name = 'define_init_volumes'
+    sub_name = 'define_init_volume'
     call enter_exit(sub_name,1)
 
     versions = .TRUE.
@@ -3953,54 +3953,30 @@ contains
 
     open(10, file=readfile, status='old')
 
-!!! check whether reading in a node-based or element-based field
-    check_type : do
-       read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !read a line into ctemp1
-       if(index(ctemp1, "of elem")> 0) then ! element-based field
-          node_based = .false.
-          ! num_elem_rad = get_final_integer(ctemp1) !get global element number
-          exit check_type
-       else if(index(ctemp1, "of node")> 0) then ! node-based field
-          node_based = .true.
-          exit check_type
-       endif
-    enddo check_type
+    np = 0
+    !.....read the coordinate, derivative, and version information for each node.
+    read_a_node : do !define a do loop name
+       !.......read node number
+       read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+       if(index(ctemp1, "Node")> 0) then
+          np = get_final_integer(ctemp1) !get global node number
 
-    if(node_based)then
-       !.....check whether versions are prompted (>1)
-       read_versions : do !define a do loop name
-          read(unit=10, fmt="(a)", iostat=ierror) ctemp1 !read a line into ctemp1
-          if(index(ctemp1, "different")> 0) then !keyword "different" is found
-             if(index(ctemp1, " N")> 0) then !keyword " N" is found
-                versions=.false.
-             endif
-             exit read_versions !exit the named do loop
-          endif
-       end do read_versions
+          ! find the corresponding local node number
+          ! call get_local_node(np_global,np) ! get local node np for global node
+          !!! (MS): won't spend time looking into subroutine get_local_node. will map the correct node numbers externally
 
-       np = 0
-       !.....read the coordinate, derivative, and version information for each node.
-       read_a_node : do !define a do loop name
-          !.......read node number
+          ! read field value for that node
           read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-          if(index(ctemp1, "Node")> 0) then
-             np_global = get_final_integer(ctemp1) !get global node number
-             ! find the corresponding local node number
-             call get_local_node(np_global,np) ! get local node np for global node
-             ! read field value for that node
-             read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-             read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-             if(index(ctemp1, "version number")>0) then
-                read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-             endif
-             if(index(ctemp1, "value")> 0) then
-                vol = get_final_real(ctemp1)
-                unit_field(nu_vol,np) = vol ! assign initial volume for that node
-             endif
-          endif !index
-          if(np.ge.num_nodes) exit read_a_node
-       end do read_a_node
-    endif
+          if(index(ctemp1, "value")> 0) then
+             vol = get_final_real(ctemp1)
+             unit_field(nu_vol,np) = vol ! assign initial volume for that node
+             !write(*,'(" Node ",I6,":",F6.2)') np, vol
+          endif
+       endif !index
+       if(np.ge.num_nodes) exit read_a_node
+    end do read_a_node
+
+    close(10)
 
     call enter_exit(sub_name,2)
 
