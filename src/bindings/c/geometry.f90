@@ -304,6 +304,27 @@ contains
 !
 !##################################################################################
 !
+
+  subroutine define_init_volume_c(FIELDFILE, filename_len) bind(C, name="define_init_volume_c")
+
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
+    use geometry, only: define_init_volume
+    implicit none
+
+    integer,intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: FIELDFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+
+    call strncpy(filename_f, FIELDFILE, filename_len)
+
+    call define_init_volume(filename_f)
+
+    end subroutine define_init_volume_c
+!
+!##################################################################################
+!
 !*define_rad_from_geom:* Defines vessel or airway radius based on their geometric structure
   subroutine define_rad_from_geom_c(order_system, order_system_len, control_param, &
         start_from, start_from_len, start_rad, group_type, group_type_len, group_options, group_options_len) &

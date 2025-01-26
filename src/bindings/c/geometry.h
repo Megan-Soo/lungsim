@@ -20,6 +20,7 @@ SHO_PUBLIC void list_tree_statistics(const char *filename);
 SHO_PUBLIC void make_data_grid(int elemlist_len, int elemlist[], int num_target, double offset, double spacing);
 SHO_PUBLIC void make_2d_vessel_from_1d(int elemlist_len, int elemlist[]);
 SHO_PUBLIC void define_rad_from_file(const char *FIELDFILE, const char *radius_type);
+SHO_PUBLIC void define_init_volume(const char *FIELDFILE);
 SHO_PUBLIC int get_local_node_f(const char *ndimenstion, const char *np_global);
 SHO_PUBLIC void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM,
                                      double START_RAD, const char *GROUP_TYPE, const char *GROUP_OPTIONS);
