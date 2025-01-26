@@ -3933,7 +3933,7 @@ contains
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
 
     !     Local Variables
-    integer :: ierror,ne_read,ne,num_elements,nunit
+    integer :: ierror,ne_read,ne,num_elements,nunit,kount
     real(dp) :: vol
     character(LEN=132) :: ctemp1
     character(len=250) :: readfile
@@ -3962,7 +3962,7 @@ contains
     print *, 'num_elements = ', num_elements
     
     ne_read = 0
-
+    kount = 1
     !.....read the coordinate, derivative, and version information for each node.
     read_an_element : do !define a do loop name
        !.......read element number
@@ -3977,11 +3977,12 @@ contains
                 if(index(ctemp1, "value")> 0) then
                 unit_field(nu_vol,nunit) = get_final_real(ctemp1) ! get last real value in string ctemp1
                 print *, 'Init vol = ', unit_field(nu_vol,nunit)
+                kount = kount+1
                 endif
              endif
           enddo
        endif
-       if(ne.ge.num_elements) exit read_an_element
+       if(kount.ge.num_elements) exit read_an_element
     end do read_an_element
 
     close(10)
