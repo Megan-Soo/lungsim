@@ -126,16 +126,12 @@ contains
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
-    !undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1)) ! (MS) init_vol == volume_of_tree
+    undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1)) ! (MS) init_vol == volume_of_tree
     
-    ! (MS) added: assume FRC vol includes vol of branches beyond upper_airway + num units
-    vol_bel_upper = elem_field(ne_vd_bel,10)+elem_field(ne_vd_bel,12)&
-                    +elem_field(ne_vd_bel,13)+elem_field(ne_vd_bel,8)&
-                    +elem_field(ne_vd_bel,9) ! hardcoded terminal elems of upper airway
-    write(*,'('' Vol bel upper airway = '',F8.3,'' ml'')') vol_bel_upper/1000
+    print *, 'Total volume of acini = ', sum(unit_field(nu_vol,:)) ! check that define_init_vol was called correctly in py script
     
-    ! initial unit volumes at FRC alr set in py script w/ define_init_volume(node.ipfiel)
-    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added:
+    ! initial unit volumes at FRC alr set in py script w/ define_init_volume(.ipfiel)
+    !undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added:
     ! (MS) assume negligible conducting airways in segmented lung vol after removing major airways & vessels
 
 !!! calculate the total model volume
@@ -144,8 +140,7 @@ contains
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
-         !(init_vol-volume_tree)/1.0e+6_dp !in L
-         FRC-(vol_bel_upper/1.0e+6_dp) !in L ! (MS) assume respiratory volume to be the FRC volume from imaging
+         (init_vol-volume_tree)/1.0e+6_dp !in L
     write(*,'('' Total lung model volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
@@ -153,9 +148,16 @@ contains
 
 !!! calculate the compliance of each tissue unit
     call tissue_compliance(chest_wall_compliance,undef)
+    print *, 'Chestwall compliance = ', chest_wall_compliance ! this is ok
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
+    print *, 'Total model compliance = ', totalc ! this is ok
+    
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure ! (MS) average Pleural Pressure
+    print *, 'Ave P_pleural  ', ppl_current 
+    !STOP ! (MS) temporary
+    
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units ! transmural pressure = average pleural pressure across all units
+    print *, 'Ave transpleural pressure ', pptrans
 
     chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
     Pcw = (chestwall_restvol - init_vol)/chest_wall_compliance
@@ -171,6 +173,7 @@ contains
        endtime = T_interval * n - 0.5_dp * dt ! the end time of this breath
        p_mus = 0.0_dp 
        ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+       !print *, 'Ptrans_frc ', ptrans_frc ! this isn't Inf or NaN
 
        if(n.gt.1)then !write out 'end of breath' information
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
@@ -315,6 +318,7 @@ contains
        call update_node_pressures(press_in_total) ! updates the pressures at nodes
        call update_unit_dpdt(dt) ! update dP/dt at the terminal units
     enddo !converged
+    print *, 'CONVERGED'
     
     call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
@@ -498,6 +502,7 @@ contains
     real(dp),intent(out) :: ppl_current
     ! Local variables
     integer :: ne,np2,nunit
+    real(dp) :: pe_unit
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -506,18 +511,22 @@ contains
     call enter_exit(sub_name,1)
 
     ppl_current = 0.0_dp
+    pe_unit = 0.0_dp
     do nunit = 1,num_units
        ne = units(nunit)
        np2 = elem_nodes(2,ne)
-       ppl_current = ppl_current - unit_field(nu_pe,nunit) + &
+       !print *, 'Count: ', nunit
+       !print *, 'Element number: ', ne
+       !print *, 'Ppl_current: ', ppl_current
+       !print *, 'Unit Elastic recoil pressure =  ', unit_field(nu_pe,nunit)
+       !print *, 'Unit Air pressure =  ', node_field(nj_aw_press,np2)
+       pe_unit = unit_field(nu_pe,nunit)
+       ppl_current = ppl_current - pe_unit + &
             node_field(nj_aw_press,np2)
     enddo !noelem
-    ! (MS) Calculate total Pleural Pressure
-    ! for i in range(num_units):
-    !	Ppl_unit = Palv_unit - Pel_unit
-    !	Ppl_current = Ppl_current + Ppl_unit
+    
     ppl_current = ppl_current/num_units ! (MS) Calculate mean Pleural Pressure across all nodes
-
+    
     call enter_exit(sub_name,2)
 
   end subroutine update_pleural_pressure
@@ -591,8 +600,12 @@ contains
        unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
             +1.0_dp/(chest_wall_compliance/dble(num_units)))
        !estimate an elastic recoil pressure for the unit
-       unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-            -1.0_dp)*exp_term/lambda
+       unit_field(nu_pe,nunit) = (cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
+            -1.0_dp)*exp_term/lambda)
+       !print *, 'Count: ', nunit
+       !print *, 'Element number: ', ne
+       !print *, 'Unit Elastic recoil pressure =  ', unit_field(nu_pe,nunit)
+       !print *, 'Unit Compliance =  ', unit_field(nu_comp,nunit)
     enddo !nunit
 
     call enter_exit(sub_name,2)

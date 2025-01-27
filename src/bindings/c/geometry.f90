@@ -305,7 +305,7 @@ contains
 !##################################################################################
 !
 
-  subroutine define_init_volume_c(FIELDFILE, filename_len) bind(C, name="define_init_volume_c")
+  subroutine define_init_volume_c(FIELDFILE, filename_len, FRC, frc_len) bind(C, name="define_init_volume_c")
 
     use iso_c_binding, only: c_ptr
     use utils_c, only: strncpy
@@ -313,13 +313,14 @@ contains
     use geometry, only: define_init_volume
     implicit none
 
-    integer,intent(in) :: filename_len
-    type(c_ptr), value, intent(in) :: FIELDFILE
-    character(len=MAX_FILENAME_LEN) :: filename_f
+    integer,intent(in) :: filename_len, frc_len
+    type(c_ptr), value, intent(in) :: FIELDFILE, FRC
+    character(len=MAX_FILENAME_LEN) :: filename_f, frc_f
 
     call strncpy(filename_f, FIELDFILE, filename_len)
+    call strncpy(frc_f, FRC, frc_len)
 
-    call define_init_volume(filename_f)
+    call define_init_volume(filename_f, frc_f)
 
     end subroutine define_init_volume_c
 !

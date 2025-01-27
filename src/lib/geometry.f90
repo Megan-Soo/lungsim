@@ -3926,15 +3926,16 @@ contains
 
 !!!#############################################################################
 
-  subroutine define_init_volume(FIELDFILE)
+  subroutine define_init_volume(FIELDFILE, FRC)
     !*define_init_volume:* reads in a volume field associated with a
     ! terminal unit and assigns initial volume information to each unit
 
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
+    character(len=MAX_STRING_LEN), intent(in) ::  FRC
 
     !     Local Variables
-    integer :: ierror,ne_read,ne,num_elements,nunit,kount
-    real(dp) :: vol
+    integer :: ierror,iostat,ne_read,ne,num_elements,nunit,kount
+    real(dp) :: volume_estimate, volume_of_tree, factor_adjust, total_volume ! (MS) hardcode total_volume for now
     character(LEN=132) :: ctemp1
     character(len=250) :: readfile
     character(len=60) :: sub_name
@@ -3943,6 +3944,14 @@ contains
 
     sub_name = 'define_init_volume'
     call enter_exit(sub_name,1)
+
+    volume_estimate = 1.0_dp
+    volume_of_tree = 0.0_dp
+    
+    ! Convert FRC (character) to total_volume (real)
+    read(FRC, *, iostat=iostat) total_volume
+    total_volume = total_volume * 1.0e+6_dp ! convert from L to mm3
+    print *, "FRC volume in mm3:", total_volume ! this is ok
 
     if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
        readfile = FIELDFILE(1:250)
@@ -3962,21 +3971,22 @@ contains
     print *, 'num_elements = ', num_elements
     
     ne_read = 0
-    kount = 1
+    kount = 0
     !.....read the coordinate, derivative, and version information for each node.
     read_an_element : do !define a do loop name
        !.......read element number
        read(unit=10, fmt="(a)", iostat=ierror) ctemp1
        if(index(ctemp1, "Element")> 0) then
           ne_read = get_final_integer(ctemp1) !get global node number
-          print *, 'Read Element number: ', ne_read
+          !print *, 'Read Element number: ', ne_read
           do nunit=1,num_units ! (MS) for nunit in range(num_units):
              ne=units(nunit)
              if (ne_read == ne) then
                 read(unit=10, fmt="(a)", iostat=ierror) ctemp1
                 if(index(ctemp1, "value")> 0) then
                 unit_field(nu_vol,nunit) = get_final_real(ctemp1) ! get last real value in string ctemp1
-                print *, 'Init vol = ', unit_field(nu_vol,nunit)
+                unit_field(nu_vt,nunit)=0.0_dp !initialise the tidal volume to a unit
+                !print *, 'Init vol = ', unit_field(nu_vol,nunit)
                 kount = kount+1
                 endif
              endif
@@ -3986,6 +3996,23 @@ contains
     end do read_an_element
 
     close(10)
+    
+    ! correct unit volumes such that total volume is exactly as specified
+    call volume_of_mesh(volume_estimate,volume_of_tree)
+    factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
+    ! ie., assume negligible conducting airways in img-segmented lung volume
+    do nunit=1,num_units
+       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
+       ! (MS) added: initialise min & max vol of unit
+       unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
+       unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
+    enddo
+
+    write(*,'('' Number of elements is '',I5)') num_elems
+    write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
+    write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
+    write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (total_volume-volume_of_tree)/1.0e+3_dp
+    write(*,'('' Total initial volume of units: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
 
     call enter_exit(sub_name,2)
 
