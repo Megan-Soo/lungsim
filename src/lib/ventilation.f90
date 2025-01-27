@@ -141,7 +141,7 @@ contains
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
          (init_vol-volume_tree)/1.0e+6_dp !in L
-    write(*,'('' Total lung model volume    = '',F8.3,'' L'')') &
+    write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp ! (MS) initialise field for pressure step
