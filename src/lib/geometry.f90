@@ -3968,7 +3968,7 @@ contains
           exit read_number_of_elements
        endif
     end do read_number_of_elements
-    print *, 'num_elements = ', num_elements
+    print *, 'num terminal elements = ', num_elements
     
     ne_read = 0
     kount = 0

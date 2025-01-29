@@ -185,6 +185,27 @@ contains
 
   end subroutine export_terminal_solution_c
 
+!!!########################################################################
+
+  subroutine export_dvdt_c(EXNODEFILE, filename_len, name, name_len) bind(C, name="export_dvdt_c")
+
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use exports, only: export_dvdt
+    use other_consts, only: MAX_STRING_LEN, MAX_FILENAME_LEN
+    implicit none
+    integer,intent(in) :: filename_len, name_len
+    type(c_ptr), value, intent(in) :: EXNODEFILE, name
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    character(len=MAX_STRING_LEN) :: name_f
+
+    call strncpy(filename_f, EXNODEFILE, filename_len)
+    call strncpy(name_f, name, name_len)
+
+    call export_dvdt(filename_f, name_f)
+
+  end subroutine export_dvdt_c
+
   !!!########################################################################
 
   subroutine export_terminal_perfusion_c(EXNODEFILE, filename_len, name, name_len) bind(C, name="export_terminal_perfusion_c")

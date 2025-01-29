@@ -71,6 +71,8 @@ contains
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: volume_target         ! the target tidal volume (mm^3)
+    real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
+    integer :: num_steps, row ! (MS) added: for indexing unit_dvdt array
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -102,6 +104,12 @@ contains
        constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     call read_params_main(num_brths, num_itns, dt, err_tol)
+    
+    ! (MS) number steps per cycle = T_interval/dt. But for now just sample every third step: sampling_interval = dt*3
+    num_steps = T_interval/dt
+    sampling_interval = dt*1000
+    sampling_tolerance = 0.0001_dp ! initialise sampling tolerance
+    allocate(unit_dvdt(num_steps,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
     press_in_total = press_in
@@ -118,6 +126,8 @@ contains
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
     undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
+    
+!!! (MS) now, undef will be unit vol at EE, def will be unit vol at EI.
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
@@ -169,6 +179,7 @@ contains
           unit_field(nu_vt,1:num_units) = 0.0_dp !reset acinar tidal volume
           sum_dpmus = 0.0_dp
           sum_dpmus_ei = 0.0_dp
+          row = 0 ! (MS) added: reset indexing for unit_dvdt array for each new breath (ultimately collect last breath cycle data)
        endif
 
 !!! solve for a single breath (for time up to endtime)
@@ -183,6 +194,15 @@ contains
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step)
+               
+          ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
+          if (abs(mod(ttime, sampling_interval)) < sampling_tolerance) then ! (MS) Check if the current time is close to a multiple of the sampling interval
+             do nunit = 1,num_units ! (MS) for nunit in range(num_units):
+                unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
+                row = row+1
+             enddo
+          endif
+          
 !!!.......update the estimate of pleural pressure
           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
@@ -212,6 +232,12 @@ contains
          elem_field(ne_Vdot,1:num_elems)/elem_field(ne_Vdot,1)
 
 !    call export_terminal_solution(TERMINAL_EXNODEFILE,'terminals')
+
+    ! Print the first column of unit_dvdt (MS)
+    !print *, "First column:"
+    !do row = 1, num_steps
+    !    write(*, '(F6.2)') unit_dvdt(row, num_units)
+    !end do
 
     call enter_exit(sub_name,2)
 
@@ -545,7 +571,7 @@ contains
     do nunit = 1,num_units
        ne = units(nunit)
        !calculate a compliance for the tissue unit
-       ratio = unit_field(nu_vol,nunit)/undef
+       ratio = unit_field(nu_vol,nunit)/undef ! ratio V_def/V_undef, ie, V_EI/V_EE
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
        exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
@@ -605,6 +631,7 @@ contains
     ! Local variables
     integer :: ne,np,nunit
     character(len=60) :: sub_name
+    real(dp) :: current_volume, min_volume, max_volume ! (MS) added
 
     ! --------------------------------------------------------------------------
 
@@ -621,6 +648,22 @@ contains
           unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
        endif
+       
+       ! Initialize values before assessing each unit
+       min_volume = 1.0E30   ! Large value to ensure the first comparison sets it correctly
+       max_volume = -1.0E30  ! Small value to ensure the first comparison sets it correctly
+       
+       ! Store the current volume for readability ! (MS)
+       current_volume = unit_field(nu_vol, nunit) ! (MS)
+
+       ! (MS) added: Track max and min volumes of each unit at each step in a breath.
+       ! (MS) each breath overwrites the max&min vol for each unit from the previous breath. 
+       ! (MS) Thus, the final values after complete ventilation will be min&max vols of each unit in the LAST breath
+       if (current_volume<min_volume) min_volume = current_volume
+       if (current_volume>max_volume) max_volume = current_volume
+       unit_field(nu_vmax, nunit) = max(unit_field(nu_vmax, nunit), current_volume) ! (MS)
+       unit_field(nu_vmin, nunit) = min(unit_field(nu_vmin, nunit), current_volume) ! (MS)
+       
     enddo !nunit
 
     call enter_exit(sub_name,2)
