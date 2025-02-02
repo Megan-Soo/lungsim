@@ -1,0 +1,208 @@
+ CMISS Version 1.21 ipfiel File Version 3
+ Heading: test
+ 
+ The number of elements is [  935]: 68
+ 
+ Element number:        1
+ The field variable value is [ 0.00000D+00]: 8.2218
+
+ Element number:        2
+ The field variable value is [ 0.00000D+00]: 8.2218
+
+ Element number:        3
+ The field variable value is [ 0.00000D+00]: 8.2218
+
+ Element number:        4
+ The field variable value is [ 0.00000D+00]: 8.2218
+
+ Element number:        5
+ The field variable value is [ 0.00000D+00]: 5.4569
+
+ Element number:        6
+ The field variable value is [ 0.00000D+00]: 5.4569
+
+ Element number:        7
+ The field variable value is [ 0.00000D+00]: 5.4569
+
+ Element number:        8
+ The field variable value is [ 0.00000D+00]: 7.1870
+
+ Element number:        9
+ The field variable value is [ 0.00000D+00]: 7.1870
+
+ Element number:        10
+ The field variable value is [ 0.00000D+00]: 7.1870
+
+ Element number:        11
+ The field variable value is [ 0.00000D+00]: 3.4042
+
+ Element number:        12
+ The field variable value is [ 0.00000D+00]: 5.1372
+
+ Element number:        13
+ The field variable value is [ 0.00000D+00]: 3.0112
+
+ Element number:        14
+ The field variable value is [ 0.00000D+00]: 2.4188
+
+ Element number:        15
+ The field variable value is [ 0.00000D+00]: 5.1093
+
+ Element number:        16
+ The field variable value is [ 0.00000D+00]: 4.8715
+
+ Element number:        17
+ The field variable value is [ 0.00000D+00]: 1.6829
+
+ Element number:        18
+ The field variable value is [ 0.00000D+00]: 2.4484
+
+ Element number:        19
+ The field variable value is [ 0.00000D+00]: 2.4188
+
+ Element number:        20
+ The field variable value is [ 0.00000D+00]: 5.1372
+
+ Element number:        21
+ The field variable value is [ 0.00000D+00]: 1.7219
+
+ Element number:        22
+ The field variable value is [ 0.00000D+00]: 2.6457
+
+ Element number:        23
+ The field variable value is [ 0.00000D+00]: 3.4751
+
+ Element number:        24
+ The field variable value is [ 0.00000D+00]: 2.7990
+
+ Element number:        25
+ The field variable value is [ 0.00000D+00]: 1.2826
+
+ Element number:        26
+ The field variable value is [ 0.00000D+00]: 0.8644
+
+ Element number:        27
+ The field variable value is [ 0.00000D+00]: 0.8644
+
+ Element number:        28
+ The field variable value is [ 0.00000D+00]: 1.4781
+
+ Element number:        29
+ The field variable value is [ 0.00000D+00]: 1.0742
+
+ Element number:        30
+ The field variable value is [ 0.00000D+00]: 1.2515
+
+ Element number:        31
+ The field variable value is [ 0.00000D+00]: 3.0387
+
+ Element number:        32
+ The field variable value is [ 0.00000D+00]: 3.5865
+
+ Element number:        33
+ The field variable value is [ 0.00000D+00]: 2.3229
+
+ Element number:        34
+ The field variable value is [ 0.00000D+00]: 1.8983
+
+ Element number:        35
+ The field variable value is [ 0.00000D+00]: 0.9732
+
+ Element number:        36
+ The field variable value is [ 0.00000D+00]: 0.8335
+
+ Element number:        37
+ The field variable value is [ 0.00000D+00]: 2.9859
+
+ Element number:        38
+ The field variable value is [ 0.00000D+00]: 3.9644
+
+ Element number:        39
+ The field variable value is [ 0.00000D+00]: 1.0762
+
+ Element number:        40
+ The field variable value is [ 0.00000D+00]: 1.7725
+
+ Element number:        41
+ The field variable value is [ 0.00000D+00]: 0.9235
+
+ Element number:        42
+ The field variable value is [ 0.00000D+00]: 0.9235
+
+ Element number:        43
+ The field variable value is [ 0.00000D+00]: 0.6224
+
+ Element number:        44
+ The field variable value is [ 0.00000D+00]: 0.6224
+
+ Element number:        45
+ The field variable value is [ 0.00000D+00]: 1.4789
+
+ Element number:        46
+ The field variable value is [ 0.00000D+00]: 1.0983
+
+ Element number:        47
+ The field variable value is [ 0.00000D+00]: 2.1504
+
+ Element number:        48
+ The field variable value is [ 0.00000D+00]: 3.4741
+
+ Element number:        49
+ The field variable value is [ 0.00000D+00]: 1.3995
+
+ Element number:        50
+ The field variable value is [ 0.00000D+00]: 1.1583
+
+ Element number:        51
+ The field variable value is [ 0.00000D+00]: 0.9725
+
+ Element number:        52
+ The field variable value is [ 0.00000D+00]: 1.2744
+
+ Element number:        53
+ The field variable value is [ 0.00000D+00]: 1.1876
+
+ Element number:        54
+ The field variable value is [ 0.00000D+00]: 1.2325
+
+ Element number:        55
+ The field variable value is [ 0.00000D+00]: 3.3214
+
+ Element number:        56
+ The field variable value is [ 0.00000D+00]: 0.9010
+
+ Element number:        57
+ The field variable value is [ 0.00000D+00]: 0.7748
+
+ Element number:        58
+ The field variable value is [ 0.00000D+00]: 0.7748
+
+ Element number:        59
+ The field variable value is [ 0.00000D+00]: 1.2405
+
+ Element number:        60
+ The field variable value is [ 0.00000D+00]: 1.3891
+
+ Element number:        61
+ The field variable value is [ 0.00000D+00]: 1.1188
+
+ Element number:        62
+ The field variable value is [ 0.00000D+00]: 1.3896
+
+ Element number:        63
+ The field variable value is [ 0.00000D+00]: 2.1114
+
+ Element number:        64
+ The field variable value is [ 0.00000D+00]: 1.9429
+
+ Element number:        65
+ The field variable value is [ 0.00000D+00]: 0.6487
+
+ Element number:        66
+ The field variable value is [ 0.00000D+00]: 2.7326
+
+ Element number:        67
+ The field variable value is [ 0.00000D+00]: 1.7976
+
+ Element number:        68
+ The field variable value is [ 0.00000D+00]: 0.6487
