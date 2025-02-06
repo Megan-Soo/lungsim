@@ -53,6 +53,8 @@ module geometry
   public reallocate_node_elem_arrays
   public set_initial_volume
   public define_init_volume ! (MS) added subroutine
+  public read_unit_dvdt ! (MS) added subroutine
+  public read_centroid_signals_spaces ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -4017,6 +4019,104 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine define_init_volume
+
+!!!#############################################################################
+
+  subroutine read_unit_dvdt(np_read, unit_dvdt)
+  
+    integer, intent(in)  :: np_read              ! node number of unit
+    real(dp),intent(in)  :: unit_dvdt(:)         ! list of the unit's volumes at each timestep, dt
+    
+    ! Local variables
+    integer :: nunit, ne, np, frame, num_unmapped
+    character(len=60) :: sub_name
+   !  real(dp), allocatable :: dvdt_list(:) ! not sure if actually need this
+
+    sub_name = 'read_unit_dvdt'
+    call enter_exit(sub_name,1)
+    
+    do nunit=1,num_units
+       ne = units(nunit)
+       np = elem_nodes(2,ne)
+       if (np_read==np) then ! if mapped unit, store list values
+          do frame=1,size(unit_dvdt)
+             units_dvdt(frame,nunit) = unit_dvdt(frame)
+          enddo
+
+       else ! if unmapped unit, store label
+         num_unmapped = num_unmapped + 1
+        ! Reallocate the array to hold additional unmapped unit label
+         if (num_unmapped > size(unmapped_units)) then
+            if(allocated(unmapped_units)) deallocate(unmapped_units)
+            allocate(unmapped_units(num_unmapped))
+         end if
+        
+        unmapped_units(num_unmapped) = np
+       endif
+    enddo
+    
+    call enter_exit(sub_name,2)
+
+  end subroutine read_unit_dvdt
+  
+!!!#############################################################################
+
+  subroutine read_centroid_signals_spaces(centroid,signals,spaces)
+
+    real(dp),intent(in) :: centroid(:),signals(:),spaces(:)
+
+    ! Local variables
+    real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax,init_vol,vol_dt
+    integer :: nunit, ne, np, frame, num_unmapped
+    character(len=60) :: sub_name
+
+    sub_name = 'read_centroid_signals_spaces'
+    call enter_exit(sub_name,1)
+    
+    ! define centroid's bbox
+    xmin = centroid(1)-spaces(1)
+    ymin = centroid(2)-spaces(2)
+    zmin = centroid(3)-spaces(3)
+    xmax = centroid(1)+spaces(1)
+    ymax = centroid(2)+spaces(2)
+    zmax = centroid(3)+spaces(3)
+
+    do nunit=1,num_units ! loop thru terminal units
+       ne = units(nunit)
+       np = elem_nodes(2,ne)
+       x = node_xyz(1,np) ! current unit coords
+       y = node_xyz(2,np)
+       z = node_xyz(3,np)
+      ! check if unit w/in bbox
+       if (x >= xmin .and. x <= xmax .and.&
+        y >= ymin .and. y <= ymax .and.&
+         z >= zmin .and. z <= zmax) then
+            do frame=1,size(signals)! loop thru signals list
+               ! calc unit's volume at each frame
+               init_vol = unit_field(nu_vol,nunit) ! access unit's initial volume
+               print *, "Accessed unit's init_vol:", init_vol
+               vol_dt = signals(frame)*init_vol + init_vol
+               print *, "Calculated unit's vol_dt", vol_dt
+               units_dvdt(frame,nunit) = vol_dt
+               print *, "Stored unit's vol_dt in units_dvdt"
+               !print *, "Assigned a signal"
+            enddo
+            print *, "Finished looping thru signals list"
+       else ! if unmapped unit, store label
+         num_unmapped = num_unmapped + 1
+         ! Reallocate the array to hold additional unmapped unit label
+         if (num_unmapped > size(unmapped_units)) then
+            if(allocated(unmapped_units)) deallocate(unmapped_units)
+            allocate(unmapped_units(num_unmapped))
+         end if
+      
+         unmapped_units(num_unmapped) = np
+       endif
+    enddo
+    
+    call enter_exit(sub_name,2)
+
+  end subroutine read_centroid_signals_spaces
 
 !!!#############################################################################
 

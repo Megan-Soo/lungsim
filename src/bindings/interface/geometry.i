@@ -19,8 +19,100 @@
     $2[i] = PyInt_AsLong(o);
   }
  }
+ 
+  %typemap(in) (int unit_dvdt_list_len, float unit_dvdt_list[]) {
+  int i;
+  if (!PyList_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a list");
+    SWIG_fail;
+  }
+  $1 = PyList_Size($input);
+  $2 = (float *) malloc(($1)*sizeof(float));
+  for (i = 0; i < $1; i++) {
+    PyObject *o = PyList_GetItem($input, i);
+    if (!PyFloat_Check(o)) {
+      free($2);
+      PyErr_SetString(PyExc_ValueError, "List items must be float values");
+      SWIG_fail;
+    }
+    $2[i] = PyFloat_AsDouble(o);
+  }
+ }
+ 
+  %typemap(in) (int centroid_list_len, double centroid_list[]) {
+  int i;
+  if (!PyList_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a list");
+    SWIG_fail;
+  }
+  $1 = PyList_Size($input);
+  $2 = (double *) malloc(($1)*sizeof(double));
+  for (i = 0; i < $1; i++) {
+    PyObject *o = PyList_GetItem($input, i);
+    if (!PyFloat_Check(o)) {
+      free($2);
+      PyErr_SetString(PyExc_ValueError, "List items must be float values");
+      SWIG_fail;
+    }
+    $2[i] = PyFloat_AsDouble(o);
+  }
+ }
+ 
+  %typemap(in) (int signals_list_len, double signals_list[]) {
+  int i;
+  if (!PyList_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a list");
+    SWIG_fail;
+  }
+  $1 = PyList_Size($input);
+  $2 = (double *) malloc(($1)*sizeof(double));
+  for (i = 0; i < $1; i++) {
+    PyObject *o = PyList_GetItem($input, i);
+    if (!PyFloat_Check(o)) {
+      free($2);
+      PyErr_SetString(PyExc_ValueError, "List items must be float values");
+      SWIG_fail;
+    }
+    $2[i] = PyFloat_AsDouble(o);
+  }
+ }
+
+  %typemap(in) (int spaces_list_len, double spaces_list[]) {
+  int i;
+  if (!PyList_Check($input)) {
+    PyErr_SetString(PyExc_ValueError, "Expecting a list");
+    SWIG_fail;
+  }
+  $1 = PyList_Size($input);
+  $2 = (double *) malloc(($1)*sizeof(double));
+  for (i = 0; i < $1; i++) {
+    PyObject *o = PyList_GetItem($input, i);
+    if (!PyFloat_Check(o)) {
+      free($2);
+      PyErr_SetString(PyExc_ValueError, "List items must be float values");
+      SWIG_fail;
+    }
+    $2[i] = PyFloat_AsDouble(o);
+  }
+ }
 
 %typemap(freearg) (int elemlist_len, int elemlist[]) {
+  if ($2) free($2);
+ }
+ 
+%typemap(freearg) (int unit_dvdt_list_len, int unit_dvdt_list[]) {
+  if ($2) free($2);
+ }
+ 
+%typemap(freearg) (int centroid_list_len, int centroid_list[]) {
+  if ($2) free($2);
+ }
+ 
+%typemap(freearg) (int signals_list_len, int signals_list[]) {
+  if ($2) free($2);
+ }
+ 
+%typemap(freearg) (int spaces_list_len, int spaces_list[]) {
   if ($2) free($2);
  }
 
@@ -38,6 +130,7 @@ void write_geo_file(int ntype, const char *GEOFILE);
 void write_node_geometry_2d(const char *NODEFILE);
 void define_rad_from_file(const char *FIELDFILE, const char *radius_type="no_taper");
 void define_init_volume(const char *FIELDFILE, const char *FRC);
+void read_centroid_signals_spaces(int centroid_list_len, double centroid_list[], int signals_list_len, double signals_list[], int spaces_list_len, double spaces_list[]);
 void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM, double START_RAD, const char *group_type_in="all", const char *group_option_in="dummy");
 
 

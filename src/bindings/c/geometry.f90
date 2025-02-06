@@ -326,6 +326,46 @@ contains
 !
 !##################################################################################
 !
+
+  subroutine read_unit_dvdt_c(np_read, unit_dvdt_len, unit_dvdt) bind(C, name="read_unit_dvdt_c")
+    
+    use arrays,only: dp
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use geometry,only: read_unit_dvdt
+    implicit none
+    
+    integer,intent(in) :: np_read
+    integer,intent(in) :: unit_dvdt_len
+    real(dp),intent(in) :: unit_dvdt(unit_dvdt_len)
+
+    call read_unit_dvdt(np_read, unit_dvdt)
+    
+  end subroutine read_unit_dvdt_c
+
+!
+!##################################################################################
+!
+
+  subroutine read_centroid_signals_spaces_c(centroid_list_len, centroid_list, signals_list_len, signals_list,&
+  					   spaces_list_len, spaces_list) bind(C, name="read_centroid_signals_spaces_c")
+    
+    use arrays, only: dp
+    use iso_c_binding, only: c_ptr
+    use geometry,only: read_centroid_signals_spaces
+    implicit none
+    
+    integer,intent(in) :: centroid_list_len,signals_list_len,spaces_list_len
+    real(dp),intent(inout) :: centroid_list(centroid_list_len),signals_list(signals_list_len),spaces_list(spaces_list_len)
+
+    call read_centroid_signals_spaces(centroid_list, signals_list, spaces_list)
+    
+  end subroutine read_centroid_signals_spaces_c
+
+!
+!##################################################################################
+!
+
 !*define_rad_from_geom:* Defines vessel or airway radius based on their geometric structure
   subroutine define_rad_from_geom_c(order_system, order_system_len, control_param, &
         start_from, start_from_len, start_rad, group_type, group_type_len, group_options, group_options_len) &

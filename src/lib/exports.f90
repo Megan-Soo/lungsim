@@ -902,11 +902,11 @@ contains
           np=elem_nodes(2,ne)
           !**     write Node number
           write(10,'(1X,''Node: '',I12)') np ! for each node,
-          do i = 1, size(unit_dvdt, 1)
+          do i = 1, size(units_dvdt, 1)
              if (i == 1) then
-                write(*, "(F6.2)", advance="no") unit_dvdt(i, nolist)
+                write(*, "(F6.2)", advance="no") units_dvdt(i, nolist)
              else
-                write(*, "(2X, F6.2)", advance="no") unit_dvdt(i, nolist) ! add two spaces (2X) before next value
+                write(*, "(2X, F6.2)", advance="no") units_dvdt(i, nolist) ! add two spaces (2X) before next value
              end if
           enddo
        enddo
