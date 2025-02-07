@@ -347,20 +347,38 @@ contains
 !##################################################################################
 !
 
-  subroutine read_centroid_signals_spaces_c(centroid_list_len, centroid_list, signals_list_len, signals_list,&
-  					   spaces_list_len, spaces_list) bind(C, name="read_centroid_signals_spaces_c")
+  subroutine read_params_c(spaces_preful_len, spaces_preful, num_centroids, num_frames) bind(C,name="read_params_c")
     
     use arrays, only: dp
     use iso_c_binding, only: c_ptr
-    use geometry,only: read_centroid_signals_spaces
+    use geometry,only: read_params
     implicit none
     
-    integer,intent(in) :: centroid_list_len,signals_list_len,spaces_list_len
-    real(dp),intent(inout) :: centroid_list(centroid_list_len),signals_list(signals_list_len),spaces_list(spaces_list_len)
+    integer,intent(in) :: spaces_preful_len,num_centroids,num_frames
+    real(dp),intent(inout) :: spaces_preful(spaces_preful_len)
 
-    call read_centroid_signals_spaces(centroid_list, signals_list, spaces_list)
+    call read_params(spaces_preful,num_centroids,num_frames)
     
-  end subroutine read_centroid_signals_spaces_c
+  end subroutine read_params_c
+
+!
+!##################################################################################
+!
+
+  subroutine read_centroid_signals_c(centroid_list_len, centroid_list, signals_list_len, signals_list)&
+                                     bind(C, name="read_centroid_signals_c")
+    
+    use arrays, only: dp
+    use iso_c_binding, only: c_ptr
+    use geometry,only: read_centroid_signals
+    implicit none
+    
+    integer,intent(in) :: centroid_list_len,signals_list_len
+    real(dp),intent(inout) :: centroid_list(centroid_list_len),signals_list(signals_list_len)
+
+    call read_centroid_signals(centroid_list, signals_list)
+    
+  end subroutine read_centroid_signals_c
 
 !
 !##################################################################################

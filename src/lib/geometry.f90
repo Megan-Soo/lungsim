@@ -54,7 +54,8 @@ module geometry
   public set_initial_volume
   public define_init_volume ! (MS) added subroutine
   public read_unit_dvdt ! (MS) added subroutine
-  public read_centroid_signals_spaces ! (MS) added subroutine
+  public read_params ! (MS) added subroutine
+  public read_centroid_signals ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -4061,25 +4062,59 @@ contains
   
 !!!#############################################################################
 
-  subroutine read_centroid_signals_spaces(centroid,signals,spaces)
+  subroutine read_params(spaces_preful,num_centroids,num_frames)
+   
+   real(dp),intent(in) :: spaces_preful(:)
+   integer,intent(in) :: num_frames, num_centroids
+   integer :: i
+   character(len=60) :: sub_name
 
-    real(dp),intent(in) :: centroid(:),signals(:),spaces(:)
+   sub_name = 'read_params'
+   call enter_exit(sub_name,1)
+
+   num_steps = num_frames ! num_steps is accessible publicly
+
+   allocate(spaces(size(spaces_preful)))
+
+   do i=1,size(spaces_preful)
+      spaces(i)=spaces_preful(i)
+   enddo
+
+   if(allocated(units_dvdt)) deallocate(units_dvdt)
+   allocate(units_dvdt(num_frames,num_units))
+
+   allocate(unmapped_units(num_units)) ! allocate unmapped_units bef calling read_centroid_signals
+   unmapped_units(1:num_units) = 0 ! initialise all to zero
+   num_unmapped = num_units ! initialise num_unmapped bef start tallying in read_centroid_signals
+   ! print *,"Num unmapped units:",num_unmapped
+
+   call enter_exit(sub_name,2)
+
+  end subroutine read_params
+
+!!!#############################################################################
+
+  subroutine read_centroid_signals(centroid,signals)
+
+    real(dp),intent(in) :: centroid(:),signals(:)
 
     ! Local variables
     real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax,init_vol,vol_dt
-    integer :: nunit, ne, np, frame, num_unmapped
+    integer :: nunit, ne, np, frame, num_mapped
     character(len=60) :: sub_name
 
-    sub_name = 'read_centroid_signals_spaces'
+    sub_name = 'read_centroid_signals'
     call enter_exit(sub_name,1)
-    
-    ! define centroid's bbox
-    xmin = centroid(1)-spaces(1)
-    ymin = centroid(2)-spaces(2)
-    zmin = centroid(3)-spaces(3)
-    xmax = centroid(1)+spaces(1)
-    ymax = centroid(2)+spaces(2)
-    zmax = centroid(3)+spaces(3)
+      
+    num_mapped=0 ! reset to 0
+
+    ! define centroid's bbox. Spaces is stored by read_params. Need to get that working.
+    xmin = centroid(1)-(spaces(1)/2)
+    ymin = centroid(2)-(spaces(2)/2)
+    zmin = centroid(3)-(spaces(3)/2)
+    xmax = centroid(1)+(spaces(1)/2)
+    ymax = centroid(2)+(spaces(2)/2)
+    zmax = centroid(3)+(spaces(3)/2)
 
     do nunit=1,num_units ! loop thru terminal units
        ne = units(nunit)
@@ -4088,35 +4123,33 @@ contains
        y = node_xyz(2,np)
        z = node_xyz(3,np)
       ! check if unit w/in bbox
-       if (x >= xmin .and. x <= xmax .and.&
-        y >= ymin .and. y <= ymax .and.&
-         z >= zmin .and. z <= zmax) then
+       if (x >= xmin .and. x < xmax .and.&
+        y >= ymin .and. y < ymax .and.&
+         z >= zmin .and. z < zmax) then
+            num_mapped = num_mapped+1 ! update total num units mapped to this centroid
+            ! write(*, '(A,I6,A)', advance='no') CHAR(13) // " Units mapped to this centroid: ", num_mapped, "      "
+            ! use spaces at end to overwrite old characters
+
             do frame=1,size(signals)! loop thru signals list
                ! calc unit's volume at each frame
                init_vol = unit_field(nu_vol,nunit) ! access unit's initial volume
-               print *, "Accessed unit's init_vol:", init_vol
                vol_dt = signals(frame)*init_vol + init_vol
-               print *, "Calculated unit's vol_dt", vol_dt
                units_dvdt(frame,nunit) = vol_dt
-               print *, "Stored unit's vol_dt in units_dvdt"
-               !print *, "Assigned a signal"
             enddo
-            print *, "Finished looping thru signals list"
        else ! if unmapped unit, store label
-         num_unmapped = num_unmapped + 1
-         ! Reallocate the array to hold additional unmapped unit label
-         if (num_unmapped > size(unmapped_units)) then
-            if(allocated(unmapped_units)) deallocate(unmapped_units)
-            allocate(unmapped_units(num_unmapped))
-         end if
-      
-         unmapped_units(num_unmapped) = np
-       endif
+         do frame=1,size(signals)
+            units_dvdt(frame,nunit) = 0
+         enddo      
+         unmapped_units(nunit) = np ! update aray with new value
+      endif
     enddo
-    
+
+    num_unmapped = num_unmapped-num_mapped ! update num unmapped units
+    write(*, '(A,I6,A)', advance='no') CHAR(13) // " Num unmapped units: ", num_unmapped, "      "
+
     call enter_exit(sub_name,2)
 
-  end subroutine read_centroid_signals_spaces
+  end subroutine read_centroid_signals
 
 !!!#############################################################################
 

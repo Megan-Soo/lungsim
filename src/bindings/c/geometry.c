@@ -21,7 +21,8 @@ extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
 void define_init_volume_c(const char *FIELDFILE, int *filename_len, const char *FRC, int *frc_len);
 void read_unit_dvdt_c(int *np_read, int *unit_dvdt_list_len, double unit_dvdt_list[]);
-void read_centroid_signals_spaces_c(int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[], int *spaces_list_len, double spaces_list[]);
+void read_params_c(int *spaces_preful_len, double spaces_preful[], int *num_centroids, int *num_frames);
+void read_centroid_signals_c(int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[]);
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
                             const char *start_from, int *start_from_len, double *start_rad,
@@ -137,13 +138,16 @@ void read_unit_dvdt(int np_read, int unit_dvdt_list_len, double unit_dvdt_list[]
   read_unit_dvdt_c(&np_read, &unit_dvdt_list_len, unit_dvdt_list);
 }
 
-void read_centroid_signals_spaces(int centroid_list_len, double centroid_list[],
-				  int signals_list_len, double signals_list[],
-				  int spaces_list_len, double spaces_list[])
+void read_params(int spaces_preful_len, double spaces_preful[], int num_centroids, int num_frames)
 {
-  read_centroid_signals_spaces_c(&centroid_list_len, centroid_list,
-  				 &signals_list_len, signals_list,
-  				 &spaces_list_len, spaces_list);
+  read_params_c(&spaces_preful_len, spaces_preful, &num_centroids, &num_frames);
+}
+
+void read_centroid_signals(int centroid_list_len, double centroid_list[],
+				  int signals_list_len, double signals_list[])
+{
+  read_centroid_signals_c(&centroid_list_len, centroid_list,
+  				 &signals_list_len, signals_list);
 }
 
 int get_local_node_f(const char *ndimension, const char *np_global)

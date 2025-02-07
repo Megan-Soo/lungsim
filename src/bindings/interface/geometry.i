@@ -77,7 +77,7 @@
   }
  }
 
-  %typemap(in) (int spaces_list_len, double spaces_list[]) {
+  %typemap(in) (int spaces_preful_len, double spaces_preful[]) {
   int i;
   if (!PyList_Check($input)) {
     PyErr_SetString(PyExc_ValueError, "Expecting a list");
@@ -112,7 +112,7 @@
   if ($2) free($2);
  }
  
-%typemap(freearg) (int spaces_list_len, int spaces_list[]) {
+%typemap(freearg) (int spaces_preful_len, int spaces_preful[]) {
   if ($2) free($2);
  }
 
@@ -130,7 +130,8 @@ void write_geo_file(int ntype, const char *GEOFILE);
 void write_node_geometry_2d(const char *NODEFILE);
 void define_rad_from_file(const char *FIELDFILE, const char *radius_type="no_taper");
 void define_init_volume(const char *FIELDFILE, const char *FRC);
-void read_centroid_signals_spaces(int centroid_list_len, double centroid_list[], int signals_list_len, double signals_list[], int spaces_list_len, double spaces_list[]);
+void read_params(int spaces_preful_len, double spaces_preful[], int num_centroids, int num_frames);
+void read_centroid_signals(int centroid_list_len, double centroid_list[], int signals_list_len, double signals_list[]);
 void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM, double START_RAD, const char *group_type_in="all", const char *group_option_in="dummy");
 
 

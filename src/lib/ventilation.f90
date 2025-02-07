@@ -71,7 +71,7 @@ contains
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: volume_target         ! the target tidal volume (mm^3)
-    integer :: num_steps, stepcount ! (MS) added
+    integer :: stepcount ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -79,6 +79,8 @@ contains
          WOBe_insp,WOBr_insp,WOB_insp
     character :: expiration_type*(10) ! active (sine wave), passive, pressure
     logical :: CONTINUE,converged
+    
+    integer,allocatable :: temp_array(:) ! (MS) added
 
     character(len=60) :: sub_name
 
@@ -105,10 +107,8 @@ contains
        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     call read_params_main(num_brths, num_itns, dt, err_tol)
     
-    ! (MS) number steps per cycle = T_interval/dt. But for now just sample every third step: sampling_interval = dt*3
-    T_interval = 10.0_dp/3.0_dp ! 0.3 Hz bpm = 10/3 s per breath
-    num_steps = 60.0_dp
-    dt = T_interval / num_steps ! hardset dt to 0.0555 s
+    ! (MS) number steps per cycle = T_interval/dt.
+    dt = T_interval / num_steps
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
     press_in_total = press_in
@@ -139,6 +139,23 @@ contains
          init_vol/1.0e+6_dp !in L
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
+
+!!! (MS) finalise unmapped_units
+    ! Allocate unmapped_units with correct size
+    if (allocated(unmapped_units)) then
+      allocate(temp_array(num_unmapped-1))
+      temp_array(1:num_unmapped-1) = unmapped_units  ! Store existing values
+      deallocate(unmapped_units)  ! Free old array
+    else
+         allocate(temp_array(num_unmapped-1))  ! Ensure temp_array is allocated
+    endif
+   
+    allocate(unmapped_units(num_unmapped))  ! Allocate new array
+    unmapped_units(1:num_unmapped-1) = temp_array  ! Restore values
+    deallocate(temp_array)  ! Clean up temp storage
+    ! unmapped_units stores the node numbers of terminal units that aren't mapped to PREFUL
+    print *, "Finalised unmapped_units array"
+    
 
 !!! calculate the compliance of each tissue unit
     call tissue_compliance(chest_wall_compliance,undef)
