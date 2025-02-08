@@ -4086,7 +4086,7 @@ contains
    allocate(unmapped_units(num_units)) ! allocate unmapped_units bef calling read_centroid_signals
    unmapped_units(1:num_units) = 0 ! initialise all to zero
    num_unmapped = num_units ! initialise num_unmapped bef start tallying in read_centroid_signals
-   ! print *,"Num unmapped units:",num_unmapped
+   num_mapped = 0 ! initialise num_mapped bef start tallying in read_centroid_signals
 
    call enter_exit(sub_name,2)
 
@@ -4100,13 +4100,13 @@ contains
 
     ! Local variables
     real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax,init_vol,vol_dt
-    integer :: nunit, ne, np, frame, num_mapped
+    integer :: nunit, ne, np, frame, mapped
     character(len=60) :: sub_name
 
     sub_name = 'read_centroid_signals'
     call enter_exit(sub_name,1)
       
-    num_mapped=0 ! reset to 0
+    mapped=0 ! reset to 0
 
     ! define centroid's bbox. Spaces is stored by read_params. Need to get that working.
     xmin = centroid(1)-(spaces(1)/2)
@@ -4126,7 +4126,7 @@ contains
        if (x >= xmin .and. x < xmax .and.&
         y >= ymin .and. y < ymax .and.&
          z >= zmin .and. z < zmax) then
-            num_mapped = num_mapped+1 ! update total num units mapped to this centroid
+            mapped = mapped+1 ! update total num units mapped to this centroid
             ! write(*, '(A,I6,A)', advance='no') CHAR(13) // " Units mapped to this centroid: ", num_mapped, "      "
             ! use spaces at end to overwrite old characters
 
@@ -4144,8 +4144,9 @@ contains
       endif
     enddo
 
-    num_unmapped = num_unmapped-num_mapped ! update num unmapped units
+    num_unmapped = num_unmapped-mapped ! update num unmapped units
     write(*, '(A,I6,A)', advance='no') CHAR(13) // " Num unmapped units: ", num_unmapped, "      "
+    num_mapped = num_unmapped+mapped
 
     call enter_exit(sub_name,2)
 

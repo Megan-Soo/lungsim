@@ -232,9 +232,9 @@ contains
     num_nu=12
     nu_vol=1
     nu_comp=2
-    nu_Vdot0=3
-    nu_Vdot1=4
-    nu_Vdot2=5
+    nu_Vdot0=3 ! (MS) current iter unit airflow
+    nu_Vdot1=4 ! (MS) unit airflow at iter-2
+    nu_Vdot2=5 ! (MS) unit airflow at iter-1
     nu_dpdt=6
     nu_pe=7
     nu_vt=8
