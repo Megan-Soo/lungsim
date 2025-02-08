@@ -550,7 +550,6 @@ contains
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
     real(dp) :: exp_term,lambda,ratio, err_est_comp, C ! (MS) added err_est_comp, C
-    logical :: converged
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -605,22 +604,10 @@ contains
          
          else
             ! estimate mapped unit's compliance given unit flows in prev & current steps
-            converged = .FALSE.
-            iter_step=0
-            do while (.not.converged)
-               iter_step = iter_step+1 !count the iterative steps
-               call estimate_compliance(dp_external,dt,nunit,stepcount,err_est_comp,C) !analytic solution for compliance
-               if(iter_step.gt.1.and.err_est_comp.lt.err_tol)then
-                  converged = .TRUE.
-               else if(iter_step.gt.num_itns)then
-                  converged = .TRUE.
-                  write(*,'('' Warning: lower convergence '// &
-                        'tolerance and time step - check values, Error='',D10.3)') &
-                        err_est_comp
-               endif
-               ! update mapped unit's estimated compliance
-               unit_field(nu_comp,nunit) = C
-            enddo ! mapped unit's compliance is converged
+            call estimate_compliance(dp_external,dt,stepcount,num_itns,err_tol,nunit,err_est_comp,C) !analytic solution for compliance
+
+            ! update mapped unit's estimated compliance
+            unit_field(nu_comp,nunit) = C
 
             !estimate an elastic recoil pressure for the unit @ current step
             ratio = units_dvdt(stepcount,nunit)/units_dvdt((stepcount-1),nunit) ! vol ratio def/undef = unit vol current step/ unit vol prev step
@@ -935,16 +922,17 @@ contains
 
 !!!#############################################################################
 
-  subroutine estimate_compliance(dp_external,dt,nunit,stepcount,err_est_comp,C)
+  subroutine estimate_compliance(dp_external,dt,stepcount,num_itns,err_tol,nunit,err_est_comp,C)
    ! estimate compliance for mapped units, given the flow values at each timestep
    ! shldn't be called when stepcount==0
    ! should only be called after estimate_flow has been called at each step
 
-   real(dp),intent(in) :: dp_external,dt
-   integer,intent(in) :: nunit,stepcount
+   real(dp),intent(in) :: dp_external,dt,err_tol
+   integer,intent(in) :: nunit,stepcount,num_itns
    real(dp),intent(out) :: err_est_comp, C
    ! Local variables
-   integer :: ne
+   integer :: ne,iter_step
+   logical :: converged
    real(dp) :: alpha,beta,ln_numerator,ln_denominator,C_new,Qinit,Q
    character(len=60) :: sub_name
 
@@ -970,24 +958,43 @@ contains
    ! where R_t: resistance of path to terminal unit at prev iter, elem_field(ne_t_resist,ne) (updated in update_resistance AFT est_flow at each step)
    ! where Qinit: unit flow at prev iter, Q: unit flow at current iter
 
-   ! Initial guess for C (RHS)
+   ! Initial guess for C (RHS) (which will be returned at the end of the subroutine)
    C = (Q + Qinit) / (2*alpha*beta)
 
-   ln_numerator = Qinit - C*alpha*beta
-   ln_denominator = Q - C*alpha*beta
+   converged = .FALSE.
+   iter_step=0
+   do while (.not.converged)
+      iter_step = iter_step+1 !count the iterative steps
 
-   if (ln_numerator > 0 .and. ln_denominator > 0) then ! ensure not dividing zero value and not dividing value by zero
-      C_new = -(dt / elem_field(ne_t_resist,ne)) / log(ln_numerator / ln_denominator) ! fortran's log is natural log ie, log to the base e
-   else
-      print *, "Error in estimate_compliance: ln(-ve)!"
-      stop
-   end if
-   
-   ! Calc error squared
-   err_est_comp = (C-C_new)**2
+      ! Calculate terms in ln()
+      ln_numerator = Qinit - C*alpha*beta
+      ln_denominator = Q - C*alpha*beta
 
-   ! update C
-   C=C_new
+      if (ln_numerator > 0 .and. ln_denominator > 0) then ! ensure not dividing zero value and not dividing value by zero
+         ! Calculate C (LHS)
+         C_new = -(dt / elem_field(ne_t_resist,ne)) / log(ln_numerator / ln_denominator) ! fortran's log is natural log ie, log to the base e
+      else
+         print *, "Error in estimate_compliance: ln(-ve)!"
+         stop
+      end if
+      
+      ! Calc error squared
+      err_est_comp = (C_new-C)**2
+
+      if(iter_step.gt.1.and.err_est_comp.lt.err_tol)then
+         converged = .TRUE. ! C (LHS) == C (RHS)
+      else if(iter_step.gt.num_itns)then
+         converged = .TRUE.
+         write(*,'('' Warning: lower convergence '// &
+               'tolerance and time step - check values, Error='',D10.3)') &
+               err_est_comp
+      endif
+
+      ! update C (RHS)
+      C=C_new
+
+   enddo ! mapped unit's compliance is converged
+
 
    call enter_exit(sub_name,2)
 
