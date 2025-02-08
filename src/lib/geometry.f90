@@ -4135,6 +4135,7 @@ contains
                init_vol = unit_field(nu_vol,nunit) ! access unit's initial volume
                vol_dt = signals(frame)*init_vol + init_vol
                units_dvdt(frame,nunit) = vol_dt
+               ! did print checks, init_vol & vol_dt all >0, hence prolly no issue w/ reading
             enddo
        else ! if unmapped unit, store label
          do frame=1,size(signals)

@@ -139,23 +139,6 @@ contains
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
-!!! (MS) finalise unmapped_units
-    ! Allocate unmapped_units with correct size
-    if (allocated(unmapped_units)) then
-      allocate(temp_array(num_unmapped-1))
-      temp_array(1:num_unmapped-1) = unmapped_units  ! Store existing values
-      deallocate(unmapped_units)  ! Free old array
-    else
-         allocate(temp_array(num_unmapped-1))  ! Ensure temp_array is allocated
-    endif
-   
-    allocate(unmapped_units(num_unmapped))  ! Allocate new array
-    unmapped_units(1:num_unmapped-1) = temp_array  ! Restore values
-    deallocate(temp_array)  ! Clean up temp storage
-    ! unmapped_units stores the node numbers of terminal units that aren't mapped to PREFUL
-    print *, "Finalised unmapped_units array"
-    
-
 !!! calculate the compliance of each tissue unit
    !  call tissue_compliance(chest_wall_compliance,undef,stepcount)
     call tissue_compliance(chest_wall_compliance,undef,dpmus,dt,stepcount,num_itns,err_tol) ! (MS) edited. dpmus=0 for initial solve (stepcount=0)!
@@ -902,6 +885,10 @@ contains
       else ! Q for mapped units at this timestep is the change in volume from prev timestep as measured by PREFUL
          if (stepcount==1) THEN ! if first timestep of the breath
             Q = (units_dvdt(stepcount,nunit)-unit_field(nu_vol,nunit))/dt
+            print *, " Stepcount:",stepcount, "; Node:",elem_nodes(2,ne)
+            print *, " dV=vol_dt-init_vol:",units_dvdt(stepcount,nunit),"-",unit_field(nu_vol,nunit)
+            print *, " Q=dv/dt=",(Q*dt),"/",dt
+            stop
          else
             Q=(units_dvdt(stepcount,nunit)-units_dvdt((stepcount-1),nunit))/dt
          endif ! end assign Q_t for mapped units
@@ -913,8 +900,12 @@ contains
          ! update unit's flow for current iter
          unit_field(nu_Vdot0,nunit) = Q
          flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne) ! this should be zero for mapped units
-         if (abs(flow_diff)>0) print *,"Flow diff btwn terminal branch & Node ", elem_nodes(2,ne)
-         
+         if (abs(flow_diff)>0) then
+            print *," Stepcount:",stepcount,"; Node:", elem_nodes(2,ne)
+            print *, " unit Vdot0 - elem Vdot =",unit_field(nu_Vdot0,nunit),"-",elem_field(ne_Vdot,ne)
+            stop
+         endif
+
          ! (MS) current iter elem airflow = mapped unit's current iter airflow (measured)
          elem_field(ne_Vdot,ne) = Q ! (units_dvdt(stepcount,nunit)-units_dvdt((stepcount-1),nunit))/dt (+ve:insp OR -ve:exp)
 
@@ -989,7 +980,7 @@ contains
       C_new = -(dt / elem_field(ne_t_resist,ne)) / log(ln_numerator / ln_denominator) ! fortran's log is natural log ie, log to the base e
    else
       print *, "Error in estimate_compliance: ln(-ve)!"
-      return
+      stop
    end if
    
    ! Calc error squared
