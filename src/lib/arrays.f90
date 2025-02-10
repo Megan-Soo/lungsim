@@ -43,7 +43,9 @@ module arrays
   integer,allocatable :: triangle(:,:)
   integer,allocatable :: units(:)
   integer,allocatable :: unmapped_units(:) ! (MS) added to store units tt aren't mapped to PREFUL
+  integer,allocatable :: mapped_units(:)
   real(dp),allocatable :: spaces(:)
+  real(dp),allocatable :: init_vols(:) ! (MS) added to store resting unit volumes at FRC
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -150,7 +152,7 @@ module arrays
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
-       units_dvdt, unmapped_units, spaces, num_unmapped, num_mapped, num_steps ! (MS) added units_dvdt, unmapped_units, spaces
+       units_dvdt,unmapped_units,mapped_units,spaces,num_unmapped,num_mapped,num_steps,init_vols ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)
