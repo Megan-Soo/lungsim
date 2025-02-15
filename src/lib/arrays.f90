@@ -16,7 +16,7 @@ module arrays
   ! (MS) these are variables that are shareable across subroutines/scripts
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
        num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen,&
-       num_unmapped,num_mapped,num_steps ! (MS) added 
+       num_unmapped,num_mapped,num_steps,num_voxels ! (MS) added 
 
   integer,allocatable :: nodes(:) !allocated in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
@@ -43,8 +43,9 @@ module arrays
   integer,allocatable :: triangle(:,:)
   integer,allocatable :: units(:)
   integer,allocatable :: unmapped_units(:) ! (MS) added to store units tt aren't mapped to PREFUL
-  integer,allocatable :: mapped_units(:)
-  real(dp),allocatable :: spaces(:)
+  integer,allocatable :: mapped_units(:,:) ! (MS) added
+  real(dp),allocatable :: signals_2d(:,:) ! (MS) added
+  real(dp),allocatable :: spaces(:) ! (MS) added
   real(dp),allocatable :: init_vols(:) ! (MS) added to store resting unit volumes at FRC
 
   ! from p-r-f
@@ -152,7 +153,8 @@ module arrays
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
-       units_dvdt,unmapped_units,mapped_units,spaces,num_unmapped,num_mapped,num_steps,init_vols ! (MS) added
+       units_dvdt,unmapped_units,mapped_units,spaces,signals_2d,& ! (MS) added
+       num_unmapped,num_mapped,num_steps,num_voxels,init_vols ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)

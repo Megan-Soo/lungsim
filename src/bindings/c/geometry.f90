@@ -365,7 +365,7 @@ contains
 !##################################################################################
 !
 
-  subroutine read_centroid_signals_c(centroid_list_len, centroid_list, signals_list_len, signals_list)&
+  subroutine read_centroid_signals_c(idx_centroid, centroid_list_len, centroid_list, signals_list_len, signals_list)&
                                      bind(C, name="read_centroid_signals_c")
     
     use arrays, only: dp
@@ -373,10 +373,10 @@ contains
     use geometry,only: read_centroid_signals
     implicit none
     
-    integer,intent(in) :: centroid_list_len,signals_list_len
+    integer,intent(in) :: idx_centroid, centroid_list_len,signals_list_len
     real(dp),intent(inout) :: centroid_list(centroid_list_len),signals_list(signals_list_len)
 
-    call read_centroid_signals(centroid_list, signals_list)
+    call read_centroid_signals(idx_centroid, centroid_list, signals_list)
     
   end subroutine read_centroid_signals_c
 

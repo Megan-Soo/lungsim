@@ -22,7 +22,7 @@ void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char
 void define_init_volume_c(const char *FIELDFILE, int *filename_len, const char *FRC, int *frc_len);
 void read_unit_dvdt_c(int *np_read, int *unit_dvdt_list_len, double unit_dvdt_list[]);
 void read_params_c(int *spaces_preful_len, double spaces_preful[], int *num_centroids, int *num_frames);
-void read_centroid_signals_c(int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[]);
+void read_centroid_signals_c(int *idx_centroid, int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[]);
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
                             const char *start_from, int *start_from_len, double *start_rad,
@@ -143,10 +143,10 @@ void read_params(int spaces_preful_len, double spaces_preful[], int num_centroid
   read_params_c(&spaces_preful_len, spaces_preful, &num_centroids, &num_frames);
 }
 
-void read_centroid_signals(int centroid_list_len, double centroid_list[],
+void read_centroid_signals(int idx_centroid, int centroid_list_len, double centroid_list[],
 				  int signals_list_len, double signals_list[])
 {
-  read_centroid_signals_c(&centroid_list_len, centroid_list,
+  read_centroid_signals_c(&idx_centroid, &centroid_list_len, centroid_list,
   				 &signals_list_len, signals_list);
 }
 

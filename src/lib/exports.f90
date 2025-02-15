@@ -894,24 +894,21 @@ contains
     
     if(num_units.GT.0) THEN
        open(10, file=TXTFILE, status='replace')
-       np_last=1
        !*** Exporting Terminal Solution
        do nolist=1,num_units
-          if(nolist.GT.1) np_last = np
           ne=units(nolist)
           np=elem_nodes(2,ne)
           !**     write Node number
           write(10,'(1X,''Node: '',I12)') np ! for each node,
-          do i = 1, size(units_dvdt, 1)
-             if (i == 1) then
-                write(*, "(F6.2)", advance="no") units_dvdt(i, nolist)
-             else
-                write(*, "(2X, F6.2)", advance="no") units_dvdt(i, nolist) ! add two spaces (2X) before next value
-             end if
-          enddo
+          ! Write column in one line
+          do i = 1, size(units_dvdt,1)
+            write(10, '(G0)', advance='no') units_dvdt(i, nolist)  ! G0 auto-adjusts width
+            write(10, '(A)', advance='no') " "       ! Add space
+          end do
+          write(10, *)  ! Newline at the end
        enddo
-       close(10)
     endif
+   close(10)
 
   end subroutine export_dvdt
 !

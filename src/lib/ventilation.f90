@@ -17,7 +17,7 @@ module ventilation
   use indices
   use other_consts
   use precision
-  use ieee_arithmetic ! (MS) added
+  use ieee_arithmetic
   
   implicit none
   !Module parameters
@@ -101,17 +101,8 @@ contains
     stepcount = 0 ! (MS) added
     dpmus = 0 ! (MS) added
 
-! In units_dvdt, find rows where all elements are 0
-   allocate(zero_cols(num_units))
-   zero_cols = pack([(idx, idx=1, size(units_dvdt, 2))], all(units_dvdt(:, :) == 0, dim=1)) ! extract rows w/ only zero vals
-   num_zero_rows = count(all(units_dvdt(:, :) == 0, dim=1)) ! count num of non-zero rows. shld == num_unmapped_units
-   ! print *,"Num zero rows:",num_zero_rows,"Num unmapped units:",num_unmapped ! correct
-   ! fill unmapped_units array w/ Node numbers of unmapped terminal units
-   do idx=1,num_zero_rows
-      nunit = zero_cols(idx)
-      np = elem_nodes(2,units(nunit))
-      unmapped_units(nunit) = np
-   enddo
+   call get_mapped_units_dvdt ! (MS) added
+   stop
 
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
@@ -153,8 +144,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-   !  call tissue_compliance(chest_wall_compliance,undef,stepcount)
-    call tissue_compliance(chest_wall_compliance,undef,dpmus,dt,stepcount,num_itns,err_tol) ! (MS) edited. dpmus=0 for initial solve (stepcount=0)!
+    call tissue_compliance(chest_wall_compliance,undef,stepcount) ! (MS) edited. dpmus=0 for initial solve (stepcount=0)!
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -323,11 +313,11 @@ contains
        call update_unit_dpdt(dt) ! update dP/dt at the terminal units
     enddo !converged
     
-    call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols
+    call update_unit_volume(dt,stepcount) ! Update tissue unit volumes, unit tidal vols
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef,dpmus,dt,stepcount,num_itns,err_tol) ! unit compliances
+    call tissue_compliance(chest_wall_compliance,undef,stepcount) ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -462,11 +452,6 @@ contains
             - unit_field(nu_air_press,nunit))/dt
     !!!    For stability, weight new estimate with the previous dP/dt
        unit_field(nu_dpdt,nunit) = 0.5_dp*(est+unit_field(nu_dpdt,nunit))
-       if (ieee_is_nan(unit_field(nu_dpdt,nunit))) then
-         print *, "Node",elem_nodes(2,ne),"dpdt:", unit_field(nu_dpdt,nunit),&
-         "est:",est,"prox aw press:",node_field(nj_aw_press,np1),"dist aw press:",unit_field(nu_air_press,nunit)
-         stop
-      endif
     enddo !nunit
 
     call enter_exit(sub_name,2)
@@ -559,12 +544,6 @@ contains
        node_field(nj_aw_press,np2) = node_field(nj_aw_press,np1) &
             - (elem_field(ne_resist,ne)*elem_field(ne_Vdot,ne))* &
             dble(elem_ordrs(no_type,ne))
-       if(ieee_is_nan(node_field(nj_aw_press,np1)).or.ieee_is_nan(node_field(nj_aw_press,np2)))then
-         print *, "Invalid pressure at branch element",ne
-         print *, "Branch Resistance:",elem_field(ne_resist,ne),"Branch Flow:",elem_field(ne_Vdot,ne),&
-         "elem_ordrs:",dble(elem_ordrs(no_type,ne))
-         stop
-       endif
     enddo !noelem
 
     call enter_exit(sub_name,2)
@@ -574,11 +553,10 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef,dp_external,dt,stepcount,num_itns,err_tol)
+  subroutine tissue_compliance(chest_wall_compliance,undef,stepcount)
 
     real(dp), intent(in) :: chest_wall_compliance,undef
-    real(dp), intent(in) :: dp_external,dt, err_tol ! (MS) added
-    integer,intent(in) :: stepcount,num_itns ! (MS) added
+    integer,intent(in) :: stepcount ! (MS) added
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
@@ -612,12 +590,6 @@ contains
                -1.0_dp)*exp_term/lambda
       enddo
 
-      if (ieee_is_nan(unit_field(nu_comp,nunit))) then
-         print *, "Invalid compliance Node",elem_nodes(2,ne)
-         print *, "Vol Ratio:",ratio,"v_def:",unit_field(nu_vol,nunit),"v_undef:",undef
-         stop
-      endif
-
     else
       do nunit = 1,num_units ! else if timestep!=0, check unmapped array, vol ratio nu_vol/undef if unmapped, else vol ratio vol_dt/undef if mapped
          ne = units(nunit)
@@ -641,27 +613,12 @@ contains
             unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
                   -1.0_dp)*exp_term/lambda
 
-            if (ieee_is_nan(unit_field(nu_comp,nunit))) then
-               print *, "Invalid compliance unmapped Node",elem_nodes(2,ne)
-               print *, "Vol Ratio:",ratio,"v_def:",unit_field(nu_vol,nunit),"v_undef:",undef
-               stop
-            endif
-
          else ! if mapped unit
             ! calculate unit's compliance given dV & updated dP in current timestep
-            unit_field(nu_comp,nunit) = ((units_dvdt(stepcount,nunit) - units_dvdt(stepcount-1,nunit))/1.0e+6_dp)& ! dV in L
-            /(unit_field(nu_dpdt,nunit)/98.0665_dp) ! dP in cmH20
-            if (ieee_is_nan(unit_field(nu_comp,nunit))) then
-               print *, "Invalid compliance mapped Node",elem_nodes(2,ne)
-               print *, "Current V:",units_dvdt(stepcount,nunit),"Prev V:",units_dvdt(stepcount-1,nunit),&
-               "dV:",units_dvdt(stepcount,nunit)-units_dvdt(stepcount-1,nunit),"dP:",unit_field(nu_dpdt,nunit)
-               stop
-            endif
-            ! ! estimate mapped unit's compliance given unit flows in prev & current steps
-            ! call estimate_compliance(dp_external,dt,stepcount,num_itns,err_tol,nunit,err_est_comp,C) !analytic solution for compliance
+            unit_field(nu_comp,nunit) = units_dvdt(stepcount,nunit)/unit_field(nu_dpdt,nunit)
 
             !estimate an elastic recoil pressure for the unit @ current step
-            ratio = units_dvdt(stepcount,nunit)/units_dvdt((stepcount-1),nunit) ! vol ratio def/undef = unit vol current step/ unit vol prev step
+            ratio = unit_field(nu_vol,nunit)/(unit_field(nu_vol,nunit)-units_dvdt(stepcount,nunit)) ! vol ratio def/undef = unit vol current step/ unit vol prev step
             lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
             exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
             unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
@@ -709,10 +666,11 @@ contains
 
 !!!#############################################################################
 
-  subroutine update_unit_volume(dt)
+  subroutine update_unit_volume(dt,stepcount)
    ! shldn't need to edit this since its calculations are based on values derived in estimate_flow
 
     real(dp),intent(in) :: dt
+    integer,intent(in) :: stepcount
     ! Local variables
     integer :: ne,np,nunit,unit
     character(len=60) :: sub_name
@@ -727,21 +685,14 @@ contains
       ne = units(nunit)
       np = elem_nodes(2,ne)
 
-      ! print *,"Unit vol:",unit_field(nu_vol,nunit) ! (MS) added
       ! update the volume of the lumped tissue unit
       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* &
             elem_field(ne_Vdot,ne) !in mm^3
       
-      if (unit_field(nu_vol,nunit).lt.0)then ! (MS) added
-         ! decrease in volume at current timestep larger than existing vol
-         ! ie. unit getting "vacuumed out" (or "squeezed out"), some -ve pressure acting on unit while exhaling
-         ! but multiple factors keep the alveoli open (preventing collapse):
-         ! surface tension from surfactant, elastic recoil of lung tissue's elastin fibres,
-         ! alveolar interdependence (alveoli are mechanically tethered to their neighbours, which helps maintain their structure & prevent indiv alveoli from collapsing too much)
-         ! Pleural pressure always -ve (unless pleural cavity punctured), keeping alveoli open
-         ! thus, reset unit vol to init vol at FRC
-         print *, "Resetting -ve unit volume to initial vol"
-         unit_field(nu_vol,nunit) = init_vols(nunit) !!!!!!!!!! need to keep it at init vol for rest of cycle not just at this step!
+      units_dvdt(stepcount,nunit) = elem_field(ne_Vdot,ne)*dt ! (MS) added: update units_dvdt too
+      if(ieee_is_nan(units_dvdt(stepcount,nunit)).or.units_dvdt(stepcount,nunit)==0.0_dp)then
+         print *,"Node",np,"dvdt",units_dvdt(stepcount,nunit)
+         stop
       endif
       
       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
@@ -911,13 +862,6 @@ contains
          Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
                (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
                exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
-         
-         if (ieee_is_nan(Q)) then
-            print *, "Invalid flow Q."
-            print *,"Alpha:",alpha,"Beta:",beta,"Qinit:",Qinit,"C:",unit_field(nu_comp,nunit),&
-            "R:",elem_field(ne_t_resist,ne)
-            stop
-         endif
 
          ! (MS) get flow from prev 2 iterations
          unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
@@ -941,19 +885,9 @@ contains
       
          unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne) ! (MS) update unit's current iter airflow for model
 
-         if(elem_field(ne_Vdot,ne).le.0 .and. stepcount>30)then ! (MS) added
-            print *,"Backflow/No flow in branch of Node",elem_nodes(2,ne)
-            print *,"Branch flow:",elem_field(ne_Vdot,ne)
-            stop
-         endif
-
        ! (MS) added else for processing mapped units
       else ! Q for mapped units at this timestep is the change in volume from prev timestep as measured by PREFUL
-         if (stepcount==1) THEN ! if first timestep of the breath
-            Q = (units_dvdt(stepcount,nunit)-unit_field(nu_vol,nunit))/dt
-         else
-            Q=(units_dvdt(stepcount,nunit)-units_dvdt((stepcount-1),nunit))/dt
-         endif ! end assign Q_t for mapped units
+         Q = units_dvdt(stepcount,nunit)/dt
          
          ! update unit's flows for prev two iterations from current iter
          unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
@@ -966,13 +900,14 @@ contains
          elem_field(ne_Vdot,ne) = Q ! (units_dvdt(stepcount,nunit)-units_dvdt((stepcount-1),nunit))/dt (+ve:insp OR -ve:exp)
 
          ! flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne) ! this should be zero for mapped units
-         if (ieee_is_nan(elem_field(ne_Vdot,ne))) then
-            print *," Invalid flow Q:",Q,"; Mapped Node:", elem_nodes(2,ne)
-            print *, " unit Vdot0:",unit_field(nu_Vdot0,nunit), "elem Vdot:",elem_field(ne_Vdot,ne)
-            stop ! check why flow_dif isn't 0
-         endif
+         
       endif ! end estimate Q_t for unmapped units OR assign Q_t for mapped units
+
    enddo !nunit
+
+   ! print *,"Q",unit_field(nu_Vdot0,1) ! (MS) added
+   ! print *,"dV",unit_field(nu_Vdot0,1)*dt
+   ! stop
 
    ! ! the estimate of error for the iterative solution 
    ! if(abs(flow_sum*dble(num_units)).gt.zero_tol) then
@@ -1079,6 +1014,66 @@ contains
 
   end subroutine estimate_compliance
        
+!!!#############################################################################
+
+  subroutine get_mapped_units_dvdt
+
+   real(dp) :: init_vol_total,dv_total,dv_unit
+   integer :: idx,count_nonzero,mapped,nunit,step,idx2
+   integer,allocatable :: nonzero_values(:)
+
+   ! loop thru each voxel
+   do idx=1,num_voxels
+      ! Collect row of mapped nunit values for eacj voxel
+      count_nonzero = count(mapped_units(idx, :) /= 0) ! Count nonzero elements
+
+      ! Allocate array for nonzero values
+      if (allocated(nonzero_values))deallocate(nonzero_values)
+      allocate(nonzero_values(count_nonzero))
+      nonzero_values(1:count_nonzero) = 0 ! initalise
+
+      ! Extract nonzero values ie nunit values of units mapped to this voxel
+      nonzero_values = pack(mapped_units(idx, :), mask=(mapped_units(idx, :) /= 0))
+
+      ! go through nunit values in the nonzero_values array
+      init_vol_total = 0.0_dp ! reset init_vol_total
+      do mapped=1,count_nonzero
+         nunit = nonzero_values(mapped)
+         init_vol_total = init_vol_total + init_vols(nunit) ! get init vol of air in this voxel region
+
+         ! if(nunit==num_units)then
+         !    print *,"nunit",num_units,"mapped to idx_centroid",idx
+         !    idx2= idx
+         !    print *,"init_vol_total",init_vol_total
+         ! endif
+      enddo
+      print *,"idx",idx,"init_vol_total",init_vol_total
+   
+      do step=1,num_steps
+         if (step==1)then
+            dv_total = (signals_2d(idx,step)/100)*init_vol_total ! FV% = 100%*(V_t-V_exp)/V_exp ==> dV=(V_t-V_exp)=(FV%/100%)*V_exp
+         else
+            ! Calc dV_total in this voxel region at each timestep, given the voxel region's FV%
+            dv_total = ((signals_2d(idx,step)/100)*init_vol_total)-((signals_2d(idx,step-1)/100)*init_vol_total)
+         endif
+
+         ! Divide dV_total among the units w/in this voxel
+         dv_unit = dv_total/count_nonzero
+         
+         ! fill dv_unit at each timestep for the voxel's mapped units
+         do mapped=1,count_nonzero
+            nunit=nonzero_values(mapped)
+            units_dvdt(step,nunit) = dv_unit
+         enddo
+      enddo
+   enddo
+   ! print *,"Idx",idx2,"FV%",signals_2d(idx2,1:num_steps)
+   ! print *, "dvdt Node num",elem_nodes(2,units(num_units)),units_dvdt(1:num_steps,num_units)
+
+   ! call export_dvdt('units_dvdt.txt','groupname')
+
+  end subroutine get_mapped_units_dvdt
+
 !!!#############################################################################
 
   subroutine calculate_work(breath_vol,dt_vol,WOBe,WOBr,pptrans)

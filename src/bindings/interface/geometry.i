@@ -131,7 +131,7 @@ void write_node_geometry_2d(const char *NODEFILE);
 void define_rad_from_file(const char *FIELDFILE, const char *radius_type="no_taper");
 void define_init_volume(const char *FIELDFILE, const char *FRC);
 void read_params(int spaces_preful_len, double spaces_preful[], int num_centroids, int num_frames);
-void read_centroid_signals(int centroid_list_len, double centroid_list[], int signals_list_len, double signals_list[]);
+void read_centroid_signals(int idx_centroid, int centroid_list_len, double centroid_list[], int signals_list_len, double signals_list[]);
 void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM, double START_RAD, const char *group_type_in="all", const char *group_option_in="dummy");
 
 

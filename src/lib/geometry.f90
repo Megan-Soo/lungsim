@@ -416,6 +416,8 @@ contains
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
+    allocate(init_vols(num_units)) ! (MS) added
+    init_vols(1:num_units) = 0.0_dp ! (MS) added
 
     unit_field=0.0_dp ! (MS) set all values in array to zero
     units=0
@@ -3884,7 +3886,7 @@ contains
     Vmax = Rmax * (total_volume-vol_bel_upper)/elem_units_below(1)
     Vmin = Rmin * (total_volume-vol_bel_upper)/elem_units_below(1)
     
-!!! for each elastic unit find the maximum and minimum coordinates in the Gdirn direction
+   !!! for each elastic unit find the maximum and minimum coordinates in the Gdirn direction
     max_z=-1.0e+6_dp
     min_z=1.0e+6_dp
     do nunit=1,num_units
@@ -3897,8 +3899,8 @@ contains
     range_z=abs(max_z-min_z)
     if(abs(range_z).le.1.0e-5_dp) range_z=1.0_dp
 
-!!! for each elastic unit allocate a size based on a gradient in the Gdirn direction, and
-!!! perturb by a user-defined COV. This should be calling a random number generator.
+   !!! for each elastic unit allocate a size based on a gradient in the Gdirn direction, and
+   !!! perturb by a user-defined COV. This should be calling a random number generator.
     do nunit=1,num_units ! (MS) for nunit in range(num_units):
        ne=units(nunit)
        np2=elem_nodes(2,ne) !end node
@@ -4006,6 +4008,7 @@ contains
     ! ie., assume negligible conducting airways in img-segmented lung volume
     do nunit=1,num_units
        unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
+       init_vols(nunit) = unit_field(nu_vol,nunit) ! store a copy in init_vols
        ! (MS) added: initialise min & max vol of unit
        unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
        unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
@@ -4073,15 +4076,26 @@ contains
    call enter_exit(sub_name,1)
 
    num_steps = num_frames ! num_steps is accessible publicly
+   num_voxels = num_centroids ! num_voxels is accessible publicly
 
    allocate(spaces(size(spaces_preful)))
 
    do i=1,size(spaces_preful)
       spaces(i)=spaces_preful(i)
    enddo
+   print *,spaces
 
    if(allocated(units_dvdt)) deallocate(units_dvdt)
    allocate(units_dvdt(num_frames,num_units))
+   units_dvdt(1:num_steps,1:num_units) = 0.0_dp
+
+   if(allocated(mapped_units))deallocate(mapped_units)
+   allocate(mapped_units(num_centroids,1))
+   mapped_units(1:num_centroids,1) = 0 ! initialise to zero
+
+   if(allocated(signals_2d))deallocate(signals_2d)
+   allocate(signals_2d(num_voxels,num_steps))
+   signals_2d(1:num_voxels,1:num_steps) = 0.0_dp
 
    allocate(unmapped_units(num_units)) ! allocate unmapped_units bef calling read_centroid_signals
    unmapped_units(1:num_units) = 0 ! initialise all to zero
@@ -4094,18 +4108,21 @@ contains
 
 !!!#############################################################################
 
-  subroutine read_centroid_signals(centroid,signals)
+  subroutine read_centroid_signals(idx_centroid,centroid,signals)
 
     real(dp),intent(in) :: centroid(:),signals(:)
+    integer,intent(in) :: idx_centroid
 
     ! Local variables
-    real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax,init_vol,vol_dt
-    integer :: nunit, ne, np, frame, mapped
+    real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax
+    integer :: nunit, ne, np, frame, mapped,max_cols
+    real(dp),allocatable :: temp_array(:,:)
     character(len=60) :: sub_name
 
     sub_name = 'read_centroid_signals'
     call enter_exit(sub_name,1)
       
+    max_cols = size(mapped_units,2) ! keep largest size updated
     mapped=0 ! reset to 0
 
     ! define centroid's bbox. Spaces is stored by read_params. Need to get that working.
@@ -4127,27 +4144,34 @@ contains
         y >= ymin .and. y < ymax .and.&
          z >= zmin .and. z < zmax) then
             mapped = mapped+1 ! update total num units mapped to this centroid
-            ! write(*, '(A,I6,A)', advance='no') CHAR(13) // " Units mapped to this centroid: ", num_mapped, "      "
-            ! use spaces at end to overwrite old characters
+            
+            if (mapped>max_cols)then
+               if(allocated(temp_array)) deallocate(temp_array)
+               allocate(temp_array(size(mapped_units,1),size(mapped_units,2)))
+               temp_array(1:num_voxels,1:max_cols) = mapped_units(1:num_voxels,1:max_cols)
 
-            do frame=1,size(signals)! loop thru signals list
-               ! calc unit's volume at each frame
-               init_vol = unit_field(nu_vol,nunit) ! access unit's initial volume
-               vol_dt = signals(frame)*init_vol + init_vol
-               units_dvdt(frame,nunit) = vol_dt
-               ! did print checks, init_vol & vol_dt all >0, hence prolly no issue w/ reading
-            enddo
+               deallocate(mapped_units)
+               allocate(mapped_units(num_voxels,mapped))
+               mapped_units(1:num_voxels,1:mapped) = 0 ! initialise all to zero
+               mapped_units(1:num_voxels,1:max_cols) = temp_array(1:num_voxels,1:max_cols)
+               deallocate(temp_array)
+            endif
+
+            mapped_units(idx_centroid,mapped) = nunit ! add new data
+
        else ! if unmapped unit, store label
-         do frame=1,size(signals)
-            units_dvdt(frame,nunit) = 0
-         enddo      
          unmapped_units(nunit) = np ! update aray with new value
-      endif
+       endif
     enddo
 
     num_unmapped = num_unmapped-mapped ! update num unmapped units
     write(*, '(A,I6,A)', advance='no') CHAR(13) // " Num unmapped units: ", num_unmapped, "      "
     num_mapped = num_unmapped+mapped
+
+    ! store signals in 2d array
+    do frame=1,size(signals)
+      signals_2d(idx_centroid,frame) = signals(frame)
+    enddo
 
     call enter_exit(sub_name,2)
 
