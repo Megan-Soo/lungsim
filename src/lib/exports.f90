@@ -893,7 +893,7 @@ contains
     endif
     
     if(num_units.GT.0) THEN
-       open(10, file=TXTFILE, status='replace')
+       open(10, file=writefile, status='replace')
        np_last=1
        !*** Exporting Terminal Solution
        do nolist=1,num_units
@@ -904,11 +904,12 @@ contains
           write(10,'(1X,''Node: '',I12)') np ! for each node,
           do i = 1, size(unit_dvdt, 1)
              if (i == 1) then
-                write(*, "(F6.2)", advance="no") unit_dvdt(i, nolist)
+                write(10, "(F6.2)", advance="no") (unit_dvdt(i, nolist))
              else
-                write(*, "(2X, F6.2)", advance="no") unit_dvdt(i, nolist) ! add two spaces (2X) before next value
+                write(10, "(2X, F6.2)", advance="no") (unit_dvdt(i, nolist)) ! add two spaces (2X) before next value
              end if
           enddo
+          write(10, *)
        enddo
        close(10)
     endif

@@ -72,7 +72,8 @@ contains
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: volume_target         ! the target tidal volume (mm^3)
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
-    integer :: num_steps, row ! (MS) added: for indexing unit_dvdt array
+    integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
+    real(dp) :: T_sample, t_k ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -104,12 +105,13 @@ contains
        constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     call read_params_main(num_brths, num_itns, dt, err_tol)
-    
-    ! (MS) number steps per cycle = T_interval/dt. But for now just sample every third step: sampling_interval = dt*3
-    num_steps = T_interval/dt
-    sampling_interval = dt*1000
-    sampling_tolerance = 0.0001_dp ! initialise sampling tolerance
-    allocate(unit_dvdt(num_steps,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
+
+    ! (MS) set number of samples you want
+    num_samples = 60
+    allocate(unit_dvdt(num_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
+    unit_dvdt(1:num_samples,1:num_units) = 0.0_dp
+    T_sample = T_interval/num_samples ! Timestep for sampling
+    row = 0 ! initialise row
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
     press_in_total = press_in
@@ -126,8 +128,6 @@ contains
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
     undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
-    
-!!! (MS) now, undef will be unit vol at EE, def will be unit vol at EI.
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
@@ -194,12 +194,16 @@ contains
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step)
+
+         !  print *, "Terminal unit",31477,"unit_field volume",unit_field(nu_vol,31477) ! prints
                
           ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
-          if (abs(mod(ttime, sampling_interval)) < sampling_tolerance) then ! (MS) Check if the current time is close to a multiple of the sampling interval
-             do nunit = 1,num_units ! (MS) for nunit in range(num_units):
+          k = nint(ttime / T_sample)  ! Find nearest sampling index
+          t_k = k * T_sample      ! Compute the corresponding sample time
+          if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
+             row = row+1 ! update the row to store value
+             do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
                 unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
-                row = row+1
              enddo
           endif
           
