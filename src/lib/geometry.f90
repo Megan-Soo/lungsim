@@ -3926,16 +3926,16 @@ contains
 
 !!!#############################################################################
 
-  subroutine define_init_volume(FIELDFILE, FRC)
+  subroutine define_init_volume(FRC, FIELDFILE)
     !*define_init_volume:* reads in a volume field associated with a
     ! terminal unit and assigns initial volume information to each unit
 
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
-    character(len=MAX_STRING_LEN), intent(in) ::  FRC
+    real(dp), intent(in) ::  FRC
 
     !     Local Variables
     integer :: ierror,iostat,ne_read,ne,num_elements,nunit,kount
-    real(dp) :: volume_estimate, volume_of_tree, factor_adjust, total_volume ! (MS) hardcode total_volume for now
+    real(dp) :: volume_estimate, volume_of_tree, factor_adjust, total_volume
     character(LEN=132) :: ctemp1
     character(len=250) :: readfile
     character(len=60) :: sub_name
@@ -3949,7 +3949,7 @@ contains
     volume_of_tree = 0.0_dp
     
     ! Convert FRC (character) to total_volume (real)
-    read(FRC, *, iostat=iostat) total_volume
+    total_volume = FRC
     total_volume = total_volume * 1.0e+6_dp ! convert from L to mm3
     print *, "FRC volume in mm3:", total_volume ! this is ok
 
@@ -4008,6 +4008,7 @@ contains
        unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
     enddo
 
+    print *, "Factor adjust", factor_adjust
     write(*,'('' Number of elements is '',I5)') num_elems
     write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
     write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp

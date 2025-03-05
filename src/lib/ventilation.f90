@@ -20,6 +20,15 @@ module ventilation
   
   implicit none
   !Module parameters
+  real(dp) :: FRC         ! (L)
+  integer :: Gdirn                  ! 1(x), 2(y), 3(z); upright lung
+  real(dp) :: chest_wall_compliance ! constant compliance of chest wall
+  real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
+  real(dp) :: press_in              ! constant pressure at entry to model (Pa)
+  real(dp) :: refvol                ! proportion of model for 'zero stress'
+  real(dp) :: T_interval            ! the total length of the breath (s)
+  real(dp) :: volume_target         ! the target tidal volume (mm^3)
+  real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
 
   !Module types
 
@@ -31,6 +40,7 @@ module ventilation
   public evaluate_uniform_flow
   public two_unit_test
   public sum_elem_field_from_periphery
+  public read_params_evaluate_flow
 
   real(dp),parameter,private :: gravity = 9.81e3_dp         ! mm/s2
 !!! for air
@@ -45,37 +55,30 @@ contains
     !*evaluate_vent:* Sets up and solves dynamic ventilation model
 
     ! Local variables
-    integer :: gdirn                  ! 1(x), 2(y), 3(z); upright lung (for our
     !                                   models) is z, supine is y.
     integer :: iter_step,n,ne,num_brths,num_itns,nunit
     real(dp) :: chestwall_restvol     ! resting volume of chest wall
-    real(dp) :: chest_wall_compliance ! constant compliance of chest wall
     real(dp) :: constrict             ! for applying uniform constriction
     real(dp) :: COV                   ! COV of tissue compliance
-    real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
     real(dp) :: p_mus                 ! muscle (driving) pressure
     real(dp) :: pmus_factor_ex        ! pmus_factor (_in and _ex) used to scale 
     real(dp) :: pmus_factor_in        ! modifies driving pressures to converge 
     !                                   tidal volume and expired volume to the 
     !                                   target volume.
-    real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
-    real(dp) :: press_in              ! constant pressure at entry to model (Pa)
     real(dp) :: press_in_total        ! dynamic pressure at entry to model (Pa)
-    real(dp) :: refvol                ! proportion of model for 'zero stress'
     real(dp) :: RMaxMean              ! ratio max to mean volume
     real(dp) :: RMinMean              ! ratio min to mean volume
     real(dp) :: sum_expid             ! sum of expired volume  (mm^3)
     real(dp) :: sum_tidal             ! sum of inspired volume  (mm^3)
     real(dp) :: Texpn                 ! time for expiration (s)
-    real(dp) :: T_interval            ! the total length of the breath (s)
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
-    real(dp) :: volume_target         ! the target tidal volume (mm^3)
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k ! (MS) added
+    real(dp),allocatable :: time_sample(:) ! (MS) added
 
-    real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
+    real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
          sum_dpmus,sum_dpmus_ei,time,totalc,Tpass,ttime,volume_tree,WOBe,WOBr, &
          WOBe_insp,WOBr_insp,WOB_insp
@@ -101,15 +104,30 @@ contains
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
 
-    call read_params_evaluate_flow(gdirn, chest_wall_compliance, &
-       constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+   !  call read_params_evaluate_flow(gdirn, chest_wall_compliance, &
+   !     constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
+   !     refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+    
+   print *, 'Read FRC: ', FRC
+   print *, 'Read T_interval: ', T_interval
+   print *, 'Read GDirn: ', Gdirn
+   print *, 'Read press_in: ', press_in
+   print *, 'Read i_to_e_ratio: ', i_to_e_ratio
+   print *, 'Read refvol: ', refvol
+   print *, 'Read volume target: ', volume_target
+   print *, 'Read pmus_step: ', pmus_step
+   print *, 'Read chess wall compliance: ', chest_wall_compliance
+
+    expiration_type = 'active' ! (MS) hardset
+    print *, 'Set expiration type: ', expiration_type
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
     ! (MS) set number of samples you want
     num_samples = 60
     allocate(unit_dvdt(num_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
     unit_dvdt(1:num_samples,1:num_units) = 0.0_dp
+    allocate(time_sample(num_samples))
+    time_sample(1:num_samples) = 0.0_dp
     T_sample = T_interval/num_samples ! Timestep for sampling
     row = 0 ! initialise row
 
@@ -194,14 +212,13 @@ contains
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step)
-
-         !  print *, "Terminal unit",31477,"unit_field volume",unit_field(nu_vol,31477) ! prints
                
           ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
           k = nint(ttime / T_sample)  ! Find nearest sampling index
           t_k = k * T_sample      ! Compute the corresponding sample time
           if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
-             row = row+1 ! update the row to store value
+            row = row+1 ! update the row to store value
+            time_sample(row) = ttime! store timestamp 
              do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
                 unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
              enddo
@@ -222,6 +239,7 @@ contains
 
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
+    print *,"Sampled timestamps:",time_sample
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
@@ -944,114 +962,139 @@ contains
 
 !!!#############################################################################
 
-  subroutine read_params_evaluate_flow (gdirn, chest_wall_compliance, &
-       constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+  subroutine read_params_evaluate_flow(FRC_in, T_interval_in, Gdirn_in, press_in_in, i_to_e_ratio_in,&
+   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in)
+   
+   integer,intent(in)::Gdirn_in
+   real(dp),intent(in)::FRC_in, T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
+                           volume_target_in,pmus_step_in,chest_wall_compliance_in
+   character(len=60) :: sub_name
 
-    integer,intent(out) :: gdirn
-    real(dp),intent(out) :: chest_wall_compliance, constrict, COV,&
-       FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target
-    character,intent(out) :: expiration_type*(*)
+   sub_name = 'read_params_evaluate_flow'
+   call enter_exit(sub_name,1)
 
-    ! Local variables
-    character(len=100) :: buffer, label
-    integer :: pos
-    integer, parameter :: fh = 15
-    integer :: ios
-    integer :: line
-    character(len=60) :: sub_name
+   FRC = FRC_in
+   T_interval = T_interval_in
+   Gdirn = Gdirn_in
+   press_in = press_in_in
+   i_to_e_ratio = i_to_e_ratio_in
+   refvol = refvol_in
+   volume_target = volume_target_in
+   pmus_step = pmus_step_in
+   chest_wall_compliance = chest_wall_compliance_in
 
-    ! --------------------------------------------------------------------------
-
-    ios = 0
-    line = 0
-    sub_name = 'read_params_evaluate_flow'
-    call enter_exit(sub_name,1)
-
-    ! following values are examples from control.txt
-    !    T_interval = 4.0_dp !s
-    !    gdirn = 3
-    !    press_in = 0.0_dp !Pa
-    !    COV = 0.2_dp
-    !    RMaxMean = 1.29_dp
-    !    RMinMean = 0.78_dp
-    !    i_to_e_ratio = 0.5_dp !dimensionless
-    !    refvol = 0.6_dp !dimensionless
-    !    volume_target = 8.0e5_dp !mm^3  800 ml
-    !    pmus_step = -5.4_dp * 98.0665_dp !-5.4 cmH2O converted to Pa
-    !    expiration_type = 'passive' ! or 'active'
-    !    chest_wall_compliance = 0.2e6_dp/98.0665_dp !(0.2 L/cmH2O --> mm^3/Pa)
-
-    open(fh, file='Parameters/params_evaluate_flow.txt')
-
-    ! ios is negative if an end of record condition is encountered or if
-    ! an endfile condition was detected.  It is positive if an error was
-    ! detected.  ios is zero otherwise.
-
-    do while (ios == 0)
-       read(fh, '(A)', iostat=ios) buffer
-       if (ios == 0) then
-          line = line + 1
-
-          ! Find the first instance of whitespace.  Split label and data.
-          pos = scan(buffer, '    ')
-          label = buffer(1:pos)
-          buffer = buffer(pos+1:)
-
-          select case (label)
-          case ('FRC')
-             read(buffer, *, iostat=ios) FRC
-             print *, 'Read FRC: ', FRC
-          case ('constrict')
-             read(buffer, *, iostat=ios) constrict
-             print *, 'Read constrict: ', constrict
-          case ('T_interval')
-             read(buffer, *, iostat=ios) T_interval
-             print *, 'Read T_interval: ', T_interval
-          case ('Gdirn')
-             read(buffer, *, iostat=ios) gdirn
-             print *, 'Read Gdirn: ', gdirn
-          case ('press_in')
-             read(buffer, *, iostat=ios) press_in
-             print *, 'Read press_in: ', press_in
-          case ('COV')
-             read(buffer, *, iostat=ios) COV
-             print *, 'Read COV: ', COV
-          case ('RMaxMean')
-             read(buffer, *, iostat=ios) RMaxMean
-             print *, 'Read RMaxMean: ', RMaxMean
-          case ('RMinMean')
-             read(buffer, *, iostat=ios) RMinMean
-             print *, 'Read RMinMean: ', RMinMean
-          case ('i_to_e_ratio')
-             read(buffer, *, iostat=ios) i_to_e_ratio
-             print *, 'Read i_to_e_ratio: ', i_to_e_ratio
-          case ('refvol')
-             read(buffer, *, iostat=ios) refvol
-             print *, 'Read refvol: ', refvol
-          case ('volume_target')
-             read(buffer, *, iostat=ios) volume_target
-             print *, 'Read volume_target: ', volume_target
-          case ('pmus_step')
-             read(buffer, *, iostat=ios) pmus_step
-             print *, 'Read pmus_step_coeff: ', pmus_step
-          case ('expiration_type')
-             read(buffer, *, iostat=ios) expiration_type
-             print *, 'Read expiration_type: ', expiration_type
-          case ('chest_wall_compliance')
-             read(buffer, *, iostat=ios) chest_wall_compliance
-             print *, 'Read chest_wall_compliance: ', chest_wall_compliance
-          case default
-             print *, 'Skipping invalid label at line', line
-          end select
-       end if
-    end do
-
-    close(fh)
-    call enter_exit(sub_name,2)
+   call enter_exit(sub_name,2)
 
   end subroutine read_params_evaluate_flow
+
+!   subroutine read_params_evaluate_flow (gdirn, chest_wall_compliance, &
+!        constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
+!        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+
+!     integer,intent(out) :: gdirn
+!     real(dp),intent(out) :: chest_wall_compliance, constrict, COV,&
+!        FRC, i_to_e_ratio, pmus_step, press_in,&
+!        refvol, RMaxMean, RMinMean, T_interval, volume_target
+!     character,intent(out) :: expiration_type*(*)
+
+!     ! Local variables
+!     character(len=100) :: buffer, label
+!     integer :: pos
+!     integer, parameter :: fh = 15
+!     integer :: ios
+!     integer :: line
+!     character(len=60) :: sub_name
+
+!     ! --------------------------------------------------------------------------
+
+!     ios = 0
+!     line = 0
+!     sub_name = 'read_params_evaluate_flow'
+   !  call enter_exit(sub_name,1)
+
+!     ! following values are examples from control.txt
+!     !    T_interval = 4.0_dp !s
+!     !    gdirn = 3
+!     !    press_in = 0.0_dp !Pa
+!     !    COV = 0.2_dp
+!     !    RMaxMean = 1.29_dp
+!     !    RMinMean = 0.78_dp
+!     !    i_to_e_ratio = 0.5_dp !dimensionless
+!     !    refvol = 0.6_dp !dimensionless
+!     !    volume_target = 8.0e5_dp !mm^3  800 ml
+!     !    pmus_step = -5.4_dp * 98.0665_dp !-5.4 cmH2O converted to Pa
+!     !    expiration_type = 'passive' ! or 'active'
+!     !    chest_wall_compliance = 0.2e6_dp/98.0665_dp !(0.2 L/cmH2O --> mm^3/Pa)
+
+!     open(fh, file='Parameters/params_evaluate_flow.txt')
+
+!     ! ios is negative if an end of record condition is encountered or if
+!     ! an endfile condition was detected.  It is positive if an error was
+!     ! detected.  ios is zero otherwise.
+
+!     do while (ios == 0)
+!        read(fh, '(A)', iostat=ios) buffer
+!        if (ios == 0) then
+!           line = line + 1
+
+!           ! Find the first instance of whitespace.  Split label and data.
+!           pos = scan(buffer, '    ')
+!           label = buffer(1:pos)
+!           buffer = buffer(pos+1:)
+
+!           select case (label)
+!           case ('FRC')
+!              read(buffer, *, iostat=ios) FRC
+!              print *, 'Read FRC: ', FRC
+!           case ('constrict')
+!              read(buffer, *, iostat=ios) constrict
+!              print *, 'Read constrict: ', constrict
+!           case ('T_interval')
+!              read(buffer, *, iostat=ios) T_interval
+!              print *, 'Read T_interval: ', T_interval
+!           case ('Gdirn')
+!              read(buffer, *, iostat=ios) gdirn
+!              print *, 'Read Gdirn: ', gdirn
+!           case ('press_in')
+!              read(buffer, *, iostat=ios) press_in
+!              print *, 'Read press_in: ', press_in
+!           case ('COV')
+!              read(buffer, *, iostat=ios) COV
+!              print *, 'Read COV: ', COV
+!           case ('RMaxMean')
+!              read(buffer, *, iostat=ios) RMaxMean
+!              print *, 'Read RMaxMean: ', RMaxMean
+!           case ('RMinMean')
+!              read(buffer, *, iostat=ios) RMinMean
+!              print *, 'Read RMinMean: ', RMinMean
+!           case ('i_to_e_ratio')
+!              read(buffer, *, iostat=ios) i_to_e_ratio
+!              print *, 'Read i_to_e_ratio: ', i_to_e_ratio
+!           case ('refvol')
+!              read(buffer, *, iostat=ios) refvol
+!              print *, 'Read refvol: ', refvol
+!           case ('volume_target')
+!              read(buffer, *, iostat=ios) volume_target
+!              print *, 'Read volume_target: ', volume_target
+!           case ('pmus_step')
+!              read(buffer, *, iostat=ios) pmus_step
+!              print *, 'Read pmus_step_coeff: ', pmus_step
+!           case ('expiration_type')
+!              read(buffer, *, iostat=ios) expiration_type
+!              print *, 'Read expiration_type: ', expiration_type
+!           case ('chest_wall_compliance')
+!              read(buffer, *, iostat=ios) chest_wall_compliance
+!              print *, 'Read chest_wall_compliance: ', chest_wall_compliance
+!           case default
+!              print *, 'Skipping invalid label at line', line
+!           end select
+!        end if
+!     end do
+
+!     close(fh)
+   !  call enter_exit(sub_name,2)
+
+!   end subroutine read_params_evaluate_flow
 
 !!!#############################################################################
 
