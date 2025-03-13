@@ -21,6 +21,15 @@ module ventilation
   
   implicit none
   !Module parameters
+  real(dp) :: FRC         ! (L)
+  integer :: Gdirn                  ! 1(x), 2(y), 3(z); upright lung
+  real(dp) :: chest_wall_compliance ! constant compliance of chest wall
+  real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
+  real(dp) :: press_in              ! constant pressure at entry to model (Pa)
+  real(dp) :: refvol                ! proportion of model for 'zero stress'
+  real(dp) :: T_interval            ! the total length of the breath (s)
+  real(dp) :: volume_target         ! the target tidal volume (mm^3)
+  real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
 
   !Module types
 

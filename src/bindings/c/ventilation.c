@@ -4,6 +4,7 @@
 void evaluate_vent_c();
 void evaluate_uniform_flow_c();
 void two_unit_test_c();
+void read_params_evaluate_flow_c();
 
 void evaluate_vent()
 {
