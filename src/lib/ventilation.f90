@@ -76,7 +76,7 @@ contains
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k ! (MS) added
-    real(dp),allocatable :: time_sample(:) ! (MS) added
+   !  real(dp),allocatable :: time_sample(:), pleural_press(:),tidal_vol(:) ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -126,6 +126,12 @@ contains
     num_samples = 60
     allocate(unit_dvdt(num_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
     unit_dvdt(1:num_samples,1:num_units) = 0.0_dp
+    allocate(unit_dpdt(num_samples,num_units))
+    unit_dpdt(1:num_samples,1:num_units) = 0.0_dp
+    allocate(pleural_press(num_samples))
+    pleural_press(1:num_samples) = 0.0_dp
+    allocate(tidal_vol(num_samples))
+    tidal_vol(1:num_samples) = 0.0_dp
     allocate(time_sample(num_samples))
     time_sample(1:num_samples) = 0.0_dp
     T_sample = T_interval/num_samples ! Timestep for sampling
@@ -212,6 +218,12 @@ contains
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step)
+          
+!!!.......update the estimate of pleural pressure
+          call update_pleural_pressure(ppl_current) ! new pleural pressure
+           
+          call write_flow_step_results(chest_wall_compliance,init_vol, &
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
                
           ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
           k = nint(ttime / T_sample)  ! Find nearest sampling index
@@ -219,17 +231,14 @@ contains
           if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
             row = row+1 ! update the row to store value
             time_sample(row) = ttime! store timestamp 
+            pleural_press(row) = -ppl_current/98.0665_dp
+            tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
              do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
                 unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
+                unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
              enddo
           endif
           
-!!!.......update the estimate of pleural pressure
-          call update_pleural_pressure(ppl_current) ! new pleural pressure
-           
-          call write_flow_step_results(chest_wall_compliance,init_vol, &
-               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
-
        enddo !while time<endtime
        
 !!!....check whether simulation continues
@@ -239,7 +248,10 @@ contains
 
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
-    print *,"Sampled timestamps:",time_sample
+    
+    print *,"Sampled timestamps:",time_sample ! (MS) added
+    print *,"Pleural pressure",pleural_press
+    print *,"Tidal vol",tidal_vol
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and

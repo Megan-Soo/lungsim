@@ -29,6 +29,8 @@ module exports
        export_elem_field, &
        export_terminal_solution, &
        export_dvdt, & ! (MS) added subroutine
+       export_dpdt, & ! (MS) added subroutine
+       export_vol_press, & ! (MS) added subroutine
        export_terminal_perfusion,&
        export_terminal_ssgexch, &
        export_triangle_elements, &
@@ -916,6 +918,103 @@ contains
 
   end subroutine export_dvdt
 !
+!##############################################################################
+!
+
+  subroutine export_dpdt(TXTFILE,name) ! (MS) added: export vol of each unit across the last breath cycle
+   !!! Parameters
+       character(len=MAX_FILENAME_LEN),intent(in) :: TXTFILE
+       character(len=MAX_STRING_LEN),intent(in) :: name
+   
+   !!! Local Variables
+       integer :: nolist, i ,np,np_last, ne
+       character(len=300) :: writefile
+       
+       if(index(TXTFILE, ".txt")> 0) then !full filename is given
+          writefile = TXTFILE
+       else ! need to append the correct filename extension
+          writefile = trim(TXTFILE)//'.txt'
+       endif
+       
+       if(num_units.GT.0) THEN
+          open(10, file=writefile, status='replace')
+          np_last=1
+          !*** Exporting Terminal Solution
+          do nolist=1,num_units
+             if(nolist.GT.1) np_last = np
+             ne=units(nolist)
+             np=elem_nodes(2,ne)
+             !**     write Node number
+             write(10,'(1X,''Node: '',I12)') np ! for each node,
+             do i = 1, size(unit_dpdt, 1)
+                if (i == 1) then
+                   write(10, "(F6.2)", advance="no") (unit_dpdt(i, nolist))
+                else
+                   write(10, "(2X, F6.2)", advance="no") (unit_dpdt(i, nolist)) ! add two spaces (2X) before next value
+                end if
+             enddo
+             write(10, *)
+          enddo
+          close(10)
+       endif
+   
+     end subroutine export_dpdt
+   !
+!##############################################################################
+!
+
+     subroutine export_vol_press(TXTFILE,name) ! (MS) added: export vol of each unit across the last breath cycle
+      !!! Parameters
+          character(len=MAX_FILENAME_LEN),intent(in) :: TXTFILE
+          character(len=MAX_STRING_LEN),intent(in) :: name
+      
+      !!! Local Variables
+          integer :: nolist, i ,np,np_last, ne
+          character(len=300) :: writefile
+          
+          if(index(TXTFILE, ".txt")> 0) then !full filename is given
+             writefile = TXTFILE
+          else ! need to append the correct filename extension
+             writefile = trim(TXTFILE)//'.txt'
+          endif
+          
+         open(10, file=writefile, status='replace')
+         
+         !*** Exporting Volume-Pressure measurements
+         write(10, *) 'Breath cycle time (s):'
+         do i = 1, size(time_sample)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (time_sample(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (time_sample(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
+         write(10,*) 'Pleural pressure (cmH2O):'
+         do i = 1, size(pleural_press)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (pleural_press(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (pleural_press(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
+         write(10,*)'Tidal volume (L):'
+         do i = 1, size(tidal_vol)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (tidal_vol(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (tidal_vol(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
+         close(10)
+         
+        end subroutine export_vol_press
+      !
 !##############################################################################
 !
 

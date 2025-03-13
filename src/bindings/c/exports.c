@@ -20,6 +20,8 @@ void export_elem_geometry_2d_c(const char *EXELEMFILE, int *EXELEMFILE_LEN,
 void export_terminal_solution_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
 				const char *name, int *name_len);
 void export_dvdt_c(const char *EXNODEFILE, int *EXNODEFILE_LEN, const char *name, int *name_len);
+void export_dpdt_c(const char *EXNODEFILE, int *EXNODEFILE_LEN, const char *name, int *name_len);
+void export_vol_press_c(const char *EXNODEFILE, int *EXNODEFILE_LEN, const char *name, int *name_len);
 void export_terminal_perfusion_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
 				 const char *name, int *name_len);
 void export_node_geometry_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
@@ -102,6 +104,22 @@ void export_dvdt(const char *EXNODEFILE, const char *name)
   int name_len = strlen(name);
 
   export_dvdt_c(EXNODEFILE, &filename_len, name, &name_len);
+}
+
+void export_dpdt(const char *EXNODEFILE, const char *name)
+{
+  int filename_len = strlen(EXNODEFILE);
+  int name_len = strlen(name);
+
+  export_dpdt_c(EXNODEFILE, &filename_len, name, &name_len);
+}
+
+void export_vol_press(const char *EXNODEFILE, const char *name)
+{
+  int filename_len = strlen(EXNODEFILE);
+  int name_len = strlen(name);
+
+  export_vol_press_c(EXNODEFILE, &filename_len, name, &name_len);
 }
 
 void export_terminal_perfusion(const char *EXNODEFILE, const char *name)
