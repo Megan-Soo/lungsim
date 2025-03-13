@@ -32,6 +32,7 @@ module ventilation
   public evaluate_uniform_flow
   public two_unit_test
   public sum_elem_field_from_periphery
+  public read_params_evaluate_flow
 
   real(dp),parameter,private :: gravity = 9.81e3_dp         ! mm/s2
 !!! for air
@@ -107,9 +108,9 @@ contains
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
 
-    call read_params_evaluate_flow(gdirn, chest_wall_compliance, &
-       constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+   !  call read_params_evaluate_flow(gdirn, chest_wall_compliance, & ! (MS) called in py script instead
+   !     constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
+   !     refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     call read_params_main(num_brths, num_itns, dt, err_tol)
     
     ! (MS) number steps per cycle = T_interval/dt.
@@ -1172,112 +1173,28 @@ contains
 
 !!!#############################################################################
 
-  subroutine read_params_evaluate_flow (gdirn, chest_wall_compliance, &
-       constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
+  subroutine read_params_evaluate_flow(FRC_in, T_interval_in, Gdirn_in, press_in_in, i_to_e_ratio_in,&
+   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in)
+   
+   integer,intent(in)::Gdirn_in
+   real(dp),intent(in)::FRC_in, T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
+                           volume_target_in,pmus_step_in,chest_wall_compliance_in
+   character(len=60) :: sub_name
 
-    integer,intent(out) :: gdirn
-    real(dp),intent(out) :: chest_wall_compliance, constrict, COV,&
-       FRC, i_to_e_ratio, pmus_step, press_in,&
-       refvol, RMaxMean, RMinMean, T_interval, volume_target
-    character,intent(out) :: expiration_type*(*)
+   sub_name = 'read_params_evaluate_flow'
+   call enter_exit(sub_name,1)
 
-    ! Local variables
-    character(len=100) :: buffer, label
-    integer :: pos
-    integer, parameter :: fh = 15
-    integer :: ios
-    integer :: line
-    character(len=60) :: sub_name
+   FRC = FRC_in
+   T_interval = T_interval_in
+   Gdirn = Gdirn_in
+   press_in = press_in_in
+   i_to_e_ratio = i_to_e_ratio_in
+   refvol = refvol_in
+   volume_target = volume_target_in
+   pmus_step = pmus_step_in
+   chest_wall_compliance = chest_wall_compliance_in
 
-    ! --------------------------------------------------------------------------
-
-    ios = 0
-    line = 0
-    sub_name = 'read_params_evaluate_flow'
-    call enter_exit(sub_name,1)
-
-    ! following values are examples from control.txt
-    !    T_interval = 4.0_dp !s
-    !    gdirn = 3
-    !    press_in = 0.0_dp !Pa
-    !    COV = 0.2_dp
-    !    RMaxMean = 1.29_dp
-    !    RMinMean = 0.78_dp
-    !    i_to_e_ratio = 0.5_dp !dimensionless
-    !    refvol = 0.6_dp !dimensionless
-    !    volume_target = 8.0e5_dp !mm^3  800 ml
-    !    pmus_step = -5.4_dp * 98.0665_dp !-5.4 cmH2O converted to Pa
-    !    expiration_type = 'passive' ! or 'active'
-    !    chest_wall_compliance = 0.2e6_dp/98.0665_dp !(0.2 L/cmH2O --> mm^3/Pa)
-
-    open(fh, file='Parameters/params_evaluate_flow.txt')
-
-    ! ios is negative if an end of record condition is encountered or if
-    ! an endfile condition was detected.  It is positive if an error was
-    ! detected.  ios is zero otherwise.
-
-    do while (ios == 0)
-       read(fh, '(A)', iostat=ios) buffer
-       if (ios == 0) then
-          line = line + 1
-
-          ! Find the first instance of whitespace.  Split label and data.
-          pos = scan(buffer, '    ')
-          label = buffer(1:pos)
-          buffer = buffer(pos+1:)
-
-          select case (label)
-          case ('FRC')
-             read(buffer, *, iostat=ios) FRC
-             print *, 'Read FRC: ', FRC
-          case ('constrict')
-             read(buffer, *, iostat=ios) constrict
-             print *, 'Read constrict: ', constrict
-          case ('T_interval')
-             read(buffer, *, iostat=ios) T_interval
-             print *, 'Read T_interval: ', T_interval
-          case ('Gdirn')
-             read(buffer, *, iostat=ios) gdirn
-             print *, 'Read Gdirn: ', gdirn
-          case ('press_in')
-             read(buffer, *, iostat=ios) press_in
-             print *, 'Read press_in: ', press_in
-          case ('COV')
-             read(buffer, *, iostat=ios) COV
-             print *, 'Read COV: ', COV
-          case ('RMaxMean')
-             read(buffer, *, iostat=ios) RMaxMean
-             print *, 'Read RMaxMean: ', RMaxMean
-          case ('RMinMean')
-             read(buffer, *, iostat=ios) RMinMean
-             print *, 'Read RMinMean: ', RMinMean
-          case ('i_to_e_ratio')
-             read(buffer, *, iostat=ios) i_to_e_ratio
-             print *, 'Read i_to_e_ratio: ', i_to_e_ratio
-          case ('refvol')
-             read(buffer, *, iostat=ios) refvol
-             print *, 'Read refvol: ', refvol
-          case ('volume_target')
-             read(buffer, *, iostat=ios) volume_target
-             print *, 'Read volume_target: ', volume_target
-          case ('pmus_step')
-             read(buffer, *, iostat=ios) pmus_step
-             print *, 'Read pmus_step_coeff: ', pmus_step
-          case ('expiration_type')
-             read(buffer, *, iostat=ios) expiration_type
-             print *, 'Read expiration_type: ', expiration_type
-          case ('chest_wall_compliance')
-             read(buffer, *, iostat=ios) chest_wall_compliance
-             print *, 'Read chest_wall_compliance: ', chest_wall_compliance
-          case default
-             print *, 'Skipping invalid label at line', line
-          end select
-       end if
-    end do
-
-    close(fh)
-    call enter_exit(sub_name,2)
+   call enter_exit(sub_name,2)
 
   end subroutine read_params_evaluate_flow
 
