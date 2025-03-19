@@ -19,7 +19,7 @@ void list_tree_statistics_c(const char *filename, int *filename_len);
 extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target, double *offset, double *spacing);
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
-void define_init_volume_c(const char *FIELDFILE, int *filename_len, const char *FRC, int *frc_len);
+void define_init_volume_c(double *FRC, const char *FIELDFILE, int *filename_len);
 void read_unit_dvdt_c(int *np_read, int *unit_dvdt_list_len, double unit_dvdt_list[]);
 void read_params_c(int *spaces_preful_len, double spaces_preful[], int *num_centroids, int *num_frames);
 void read_centroid_signals_c(int *idx_centroid, int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[]);
@@ -126,11 +126,10 @@ void define_rad_from_file(const char *FIELDFILE, const char *radius_type)
   define_rad_from_file_c(FIELDFILE, &filename_len, radius_type, &radius_type_len);
 }
 
-void define_init_volume(const char *FIELDFILE, const char *FRC)
+void define_init_volume(double FRC, const char *FIELDFILE)
 {
   int filename_len = (int)strlen(FIELDFILE);
-  int frc_len = (int)strlen(FRC);
-  define_init_volume_c(FIELDFILE, &filename_len, FRC, &frc_len);
+  define_init_volume_c(&FRC, FIELDFILE, &filename_len);
 }
 
 void read_unit_dvdt(int np_read, int unit_dvdt_list_len, double unit_dvdt_list[])
