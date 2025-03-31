@@ -969,7 +969,7 @@ contains
           character(len=MAX_STRING_LEN),intent(in) :: name
       
       !!! Local Variables
-          integer :: nolist, i ,np,np_last, ne
+          integer :: i
           character(len=300) :: writefile
           
           if(index(TXTFILE, ".txt")> 0) then !full filename is given
@@ -991,8 +991,18 @@ contains
          enddo
          write(10, *) ! new line
 
+         write(10,*) 'Transpulmonary pressure (cmH2O):'
+         do i = 1, size(transpulm_press)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (transpulm_press(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (transpulm_press(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
          write(10,*) 'Pleural pressure (cmH2O):'
-         do i = 1, size(pleural_press)
+         do i = 1, size(transpulm_press)
             if (i == 1) then
                write(10, "(F6.2)", advance="no") (pleural_press(i))
             else
@@ -1001,12 +1011,32 @@ contains
          enddo
          write(10, *) ! new line
 
-         write(10,*)'Tidal volume (L):'
+         write(10,*) 'Airway pressure (cmH2O):'
+         do i = 1, size(transpulm_press)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (transpulm_press(i)+pleural_press(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (transpulm_press(i)+pleural_press(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
+         write(10,*) 'Muscle pressure (cmH2O):'
+         do i = 1, size(transpulm_press)
+            if (i == 1) then
+               write(10, "(F6.2)", advance="no") (muscle_press(i))
+            else
+               write(10, "(2X, F6.2)", advance="no") (muscle_press(i)) ! add two spaces (2X) before next value
+            end if
+         enddo
+         write(10, *) ! new line
+
+         write(10,*)'Tidal volume (mL):'
          do i = 1, size(tidal_vol)
             if (i == 1) then
                write(10, "(F6.2)", advance="no") (tidal_vol(i))
             else
-               write(10, "(2X, F6.2)", advance="no") (tidal_vol(i)) ! add two spaces (2X) before next value
+               write(10, "(2X, F10.2)", advance="no") (tidal_vol(i)) ! add two spaces (2X) before next value
             end if
          enddo
          write(10, *) ! new line

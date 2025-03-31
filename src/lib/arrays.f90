@@ -66,8 +66,10 @@ module arrays
   real(dp),allocatable :: unit_field(:,:) !properties of elastic units
   real(dp),allocatable :: unit_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
   real(dp),allocatable :: unit_dpdt(:,:) ! (MS) added: array to store pressure of each unit at each dt of a breath cycle
-  real(dp),allocatable :: time_sample(:)
-  real(dp),allocatable :: pleural_press(:)
+  real(dp),allocatable :: time_sample(:) ! (MS) added: array to store timestamps of sampled measurements
+  real(dp),allocatable :: transpulm_press(:) ! (MS) added: array to store transpulmonary pressure, pptrans, for vol-press curve
+  real(dp),allocatable :: pleural_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
+  real(dp),allocatable :: muscle_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
   real(dp),allocatable :: tidal_vol(:)
   real(dp),allocatable :: vertex_xyz(:,:)
   real(dp),allocatable :: node_field(:,:)
@@ -151,7 +153,8 @@ module arrays
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
-       unit_dvdt, unit_dpdt, time_sample, pleural_press, tidal_vol, num_steps ! (MS) added
+       unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol,& ! (MS) added
+       num_steps ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)

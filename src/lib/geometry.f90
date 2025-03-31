@@ -3997,18 +3997,16 @@ contains
 
     close(10)
     
-    ! correct unit volumes such that total volume is exactly as specified
+   !  ! correct unit volumes such that total volume is exactly as specified
     call volume_of_mesh(volume_estimate,volume_of_tree)
-    factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
-    ! ie., assume negligible conducting airways in img-segmented lung volume
+   !  factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
     do nunit=1,num_units
-       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
-       ! (MS) added: initialise min & max vol of unit
+      !  unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust ! (MS) commented out: unit volumes are alr adjusted
+      ! (MS) added: initialise min & max vol of unit
        unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
        unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
     enddo
 
-    print *, "Factor adjust", factor_adjust
     write(*,'('' Number of elements is '',I5)') num_elems
     write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
     write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
