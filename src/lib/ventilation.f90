@@ -307,10 +307,14 @@ contains
     ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
     ! between points of apparent zero flow at the beginning and end of inspiration.
 
-    write(*,'('' Specific Compliance (compliance normalised by FRC vol) = '',F10.2,'' per cmH2O'')') & ! for comparison between lungs of very diff sizes
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! defined below:
-    ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005
-
+    ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
+    write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+6_dp)
+    ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
+    write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+    ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
+        
    ! Commented out below bc the values don't seem normal compared to lit values (Cabello 2006)
    !  write(*,'('' Work of Breathing (cmH2O.L) = '',F10.2,'' J'')') &
    !  pptrans/98.0665_dp*1.0e-1_dp * (vt_ei-vt_ee)/1.0e+6_dp ! 1 Joule = 1L.10cmH2O (Cabello 2006). Convert 1 Pa.mm3 to 10cmH2O.L
