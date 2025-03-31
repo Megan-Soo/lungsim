@@ -196,6 +196,23 @@ contains
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
                pmus_step,sum_expid,sum_tidal,volume_target,WOBe_insp, &
                WOBr_insp,WOB_insp)
+
+          ! (MS) added: start.
+          write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') &
+          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) ! defined below:
+          ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+          ! between points of apparent zero flow at the beginning and end of inspiration.
+      
+          ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
+          write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
+          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+6_dp)
+          ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
+          write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
+          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+          ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
+         
+          print * ! new line
+          ! (MS) added: end.
           
           if(abs(volume_target).gt.1.0e-5_dp)THEN
              ! modify driving muscle pressure by volume_target/sum_tidal
@@ -210,12 +227,18 @@ contains
           sum_dpmus = 0.0_dp
           sum_dpmus_ei = 0.0_dp
           row = 0 ! (MS) added: reset indexing for unit_dvdt array for each new breath (ultimately collect last breath cycle data)
+
+          ! (MS) reset these variables for each new breath cycle
+          vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
+          vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
+          peep = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
+          ppl_vt = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
+          area_ee = 0.0_dp
+          area_ei = 0.0_dp
+
        endif
 
-       vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
-       vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
-       peep = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
-       ppl_vt = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
+
 
 !!! solve for a single breath (for time up to endtime)
        do while (time.lt.endtime) 
@@ -235,22 +258,6 @@ contains
            
          !  call write_flow_step_results(chest_wall_compliance,init_vol, &
          !       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
-               
-          ! (MS) added: Get Ppl at min Tidal Vol (zero flow) & peak Tidal Vol (zero flow)
-          if (vt_ee<=(current_vol - init_vol)) then ! Expiratory limb
-            ! Calculate area under curve
-            area_ee = abs(vt_ee - (current_vol - init_vol)) * abs(peep-ppl_current) ! dV * dP
-            ! Update variables
-            vt_ee = current_vol - init_vol
-            peep = ppl_current
-          endif
-          if(vt_ei>=(current_vol-init_vol))then ! Inspiratory limb
-            ! Calculate area under curve
-            area_ei = abs(vt_ei - (current_vol - init_vol)) * abs(ppl_vt-ppl_current) ! dV * dP
-            ! Update variables
-            vt_ei = (current_vol - init_vol)
-            ppl_vt = ppl_current
-          endif
 
           ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
           k = nint(ttime / T_sample)  ! Find nearest sampling index
@@ -268,21 +275,23 @@ contains
              enddo
           endif
           
+          ! (MS) added: Get Ppl at min Tidal Vol (zero flow) & peak Tidal Vol (zero flow)
+          if (vt_ee>(current_vol-init_vol)) then ! Expiratory limb
+            ! Calculate area under curve
+            area_ee = area_ee + abs(vt_ee - (current_vol-init_vol)) * abs(peep-ppl_current) ! dV * dP
+            ! Update variables
+            vt_ee = current_vol-init_vol
+            peep = ppl_current
+          endif
+          if(vt_ei<(current_vol-init_vol))then ! Inspiratory limb
+            ! Calculate area under curve
+            area_ei = area_ei + abs(vt_ei - (current_vol-init_vol)) * abs(ppl_vt-ppl_current) ! dV * dP
+            ! Update variables
+            vt_ei = current_vol-init_vol
+            ppl_vt = ppl_current
+          endif
+
        enddo !while time<endtime
-       
-       ! (MS) added
-       print *, "Tidal Vol EE; Tidal Vol EI (mL)", vt_ee/1.0e+3_dp, vt_ei/1.0e+3_dp
-       print *, "Dynamic Compliance (mL/cmH2O)", ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) ! defined below:
-       ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
-       ! between points of apparent zero flow at the beginning and end of inspiration.
-       print *, "Specific Compliance (compliance normalised by FRC vol) (cmH2O^-1):",& ! for comparison between lungs of very diff sizes
-       ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! defined below:
-       ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005
-       print *, "Work of Breathing (J)", (area_ee - area_ei)*1.0e-9_dp ! vol in mm3 *1e-9=m3, pressure in Pa, hence *1d-9 = P.m3 (Joules)
-       ! defined as: the area on a pressure–volume diagram" Cabello 2006
-       print *, "Power of breathing (J/min):", ((area_ee - area_ei)*1.0e-9_dp) / (1/T_interval)*60 ! defined below:
-       ! "WOB can be expressed in work per unit of time, multiplying joules per cycle by the respiratory rate" Cabello 2006
-       print * ! new line
        
 !!!....check whether simulation continues
        continue = ventilation_continue(n,num_brths,sum_tidal,volume_target)
@@ -292,9 +301,39 @@ contains
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
    
-   !  print *,"Sampled timestamps:",time_sample ! (MS) added
-   !  print *,"Transpulmonary pressure",transpulm_press
-   !  print *,"Tidal vol",tidal_vol
+    ! (MS) added: start.
+    write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') &
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) ! defined below:
+    ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+    ! between points of apparent zero flow at the beginning and end of inspiration.
+
+    write(*,'('' Specific Compliance (compliance normalised by FRC vol) = '',F10.2,'' per cmH2O'')') & ! for comparison between lungs of very diff sizes
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! defined below:
+    ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005
+
+   ! Commented out below bc the values don't seem normal compared to lit values (Cabello 2006)
+   !  write(*,'('' Work of Breathing (cmH2O.L) = '',F10.2,'' J'')') &
+   !  pptrans/98.0665_dp*1.0e-1_dp * (vt_ei-vt_ee)/1.0e+6_dp ! 1 Joule = 1L.10cmH2O (Cabello 2006). Convert 1 Pa.mm3 to 10cmH2O.L
+   !  ! simple estimation defined by Amirav 2024 in Children
+
+   !  write(*,'('' Work per Litre = '',F10.2,'' J/L'')') &
+   !  (abs(area_ee - area_ei)/98.0665_dp*1.0e-1_dp*1.0e-6_dp)/((vt_ei-vt_ee)/1.0e+6_dp) ! 1 Joule = 1L.10cmH2O (Cabello 2006). Convert 1 Pa.mm3 to 10cmH2O.L
+   !  ! WOB: the area on a [Campbell] pressure–volume diagram" Cabello 2006
+   !  ! NB: Campbell diagram needs predicted Chest Wall Compliance which is a pain to calc. And not that precise either (Chen 2015, Intensive Care Med Exp)
+   !  ! "work per liter of ventilation (J/l) is the work per cycle divided by the tidal volume" Cabello 2006
+   !  ! "normal Work per Litre is ~ 0.35 J/L" Mancebo 1995 (1st), Cabello 2006 (2nd)
+
+   !  write(*,'('' Power of breathing = '',F10.2,'' J/min'')') &
+   !  abs((area_ee - area_ei)/98.0665_dp*1.0e-1_dp*1.0e-6_dp) * (1/T_interval)*60 ! defined below:
+   !  ! "WOB can be expressed in work per unit of time, multiplying joules per cycle by the respiratory rate" Cabello 2006
+   !  ! "normal Power of Breathing is ~ 2.4 J/min" Mancebo 1995 (1st), Cabello 2006 (2nd)
+   
+    print * ! new line
+   
+    ! (MS) added: end.
+    !  print *,"Sampled timestamps:",time_sample ! (MS) added
+    !  print *,"Transpulmonary pressure",transpulm_press
+    !  print *,"Tidal vol",tidal_vol
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
@@ -1288,6 +1327,7 @@ contains
     write(*,'('' Total Work of Breathing ='',F7.3,''J/min'')')WOB_insp
     write(*,'('' elastic WOB ='',F7.3,''J/min'')')WOBe_insp
     write(*,'('' resistive WOB='',F7.3,''J/min'')')WOBr_insp
+    ! (MS) added: Total WOB = Elastic WOB + Flow-Resistive WOB. Amirav 2021 in Children.
           
     call enter_exit(sub_name,2)
 
