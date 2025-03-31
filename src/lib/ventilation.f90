@@ -75,7 +75,7 @@ contains
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
-    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_vt, peep ! (MS) added
+    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_vt, peep, area_ee, area_ei ! (MS) added
    !  real(dp),allocatable :: time_sample(:), pleural_press(:),tidal_vol(:) ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
