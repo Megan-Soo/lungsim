@@ -75,8 +75,8 @@ contains
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
-    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_vt, peep, area_ee, area_ei ! (MS) added
-   !  real(dp),allocatable :: time_sample(:), pleural_press(:),tidal_vol(:) ! (MS) added
+    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init ! (MS) added
+    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -156,17 +156,17 @@ contains
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
-    undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
-
+   !  undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
+    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added: FRC fed into model is segmented volume of imaged lungs.
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
 
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
-         (init_vol-volume_tree)/1.0e+6_dp !in L
+         (init_vol-volume_tree)/1.0e+6_dp !in L ! (MS) just the acinus tissue units
     write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
-         init_vol/1.0e+6_dp !in L
+         init_vol/1.0e+6_dp !in L. ! (MS) the whole respiratory system model
 
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
@@ -195,22 +195,21 @@ contains
        if(n.gt.1)then !write out 'end of breath' information
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
                pmus_step,sum_expid,sum_tidal,volume_target,WOBe_insp, &
-               WOBr_insp,WOB_insp)
+               WOBr_insp,WOB_insp,POB,WOBt,work_per_litre,WOBe_ms,WOBr_ms)
 
           ! (MS) added: start.
-          write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') &
-          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) ! defined below:
-          ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
-          ! between points of apparent zero flow at the beginning and end of inspiration.
+          write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') comp_dyn
       
           ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
           write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
-          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+6_dp)
+          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
           ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
           write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
-          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+          ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
           ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
-         
+          write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
+          (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
+
           print * ! new line
           ! (MS) added: end.
           
@@ -227,15 +226,18 @@ contains
           sum_dpmus = 0.0_dp
           sum_dpmus_ei = 0.0_dp
           row = 0 ! (MS) added: reset indexing for unit_dvdt array for each new breath (ultimately collect last breath cycle data)
+          POB = 0.0_dp ! (MS) added: reset POB for each new breath cycle
+          WOBr_ms = 0.0_dp ! (MS) added: reset WOBr for each new breath cycle
+          WOBe_ms = 0.0_dp ! (MS) added: reset WOBe for each new breath cycle
+          WOBt = 0.0_dp ! (MS) added: reset WOBt for each new breath cycle
+          comp_dyn = 0.0_dp ! (MS) added: reset comp_dyn for each new breath cycle
+          work_per_litre = 0.0_dp ! (MS) added: reset work_per_litre for each new breath cycle
 
           ! (MS) reset these variables for each new breath cycle
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
           vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
-          peep = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
-          ppl_vt = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
-          area_ee = 0.0_dp
-          area_ei = 0.0_dp
-
+          ppl_init = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
+          ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
        endif
 
 
@@ -244,6 +246,11 @@ contains
        do while (time.lt.endtime) 
           ttime = ttime + dt ! increment the breath time
           time = time + dt ! increment the whole simulation time
+
+          if(ppl_init.eq.0.0_dp)then
+             ppl_init = ppl_current ! (MS) added: get the initial pleural pressure at the start of the breath cycle
+          endif
+
 !!!.......calculate the flow and pressure distribution for one time-step
           call evaluate_vent_step(num_itns,chest_wall_compliance, &
                chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
@@ -251,10 +258,10 @@ contains
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-               dpmus,converged,iter_step)
+               dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
           
-!!!.......update the estimate of pleural pressure
-          call update_pleural_pressure(ppl_current) ! new pleural pressure
+! !!!.......update the estimate of pleural pressure
+!           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
          !  call write_flow_step_results(chest_wall_compliance,init_vol, &
          !       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
@@ -276,19 +283,13 @@ contains
           endif
           
           ! (MS) added: Get Ppl at min Tidal Vol (zero flow) & peak Tidal Vol (zero flow)
-          if (vt_ee>(current_vol-init_vol)) then ! Expiratory limb
-            ! Calculate area under curve
-            area_ee = area_ee + abs(vt_ee - (current_vol-init_vol)) * abs(peep-ppl_current) ! dV * dP
-            ! Update variables
-            vt_ee = current_vol-init_vol
-            peep = ppl_current
-          endif
-          if(vt_ei<(current_vol-init_vol))then ! Inspiratory limb
-            ! Calculate area under curve
-            area_ei = area_ei + abs(vt_ei - (current_vol-init_vol)) * abs(ppl_vt-ppl_current) ! dV * dP
+          if(elem_field(ne_Vdot,1).gt.0.0_dp)then ! Inspiratory limb
             ! Update variables
             vt_ei = current_vol-init_vol
-            ppl_vt = ppl_current
+            ppl_ei = ppl_current
+          else ! Expiratory limb
+            ! Update variables
+            vt_ee = current_vol-init_vol
           endif
 
        enddo !while time<endtime
@@ -298,46 +299,45 @@ contains
 
     enddo !...WHILE(CONTINUE)
 
+    ! (MS) added: calculate dynamic compliance
+    comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp)  ! defined below:
+    ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+    ! between points of apparent zero flow at the beginning and end of inspiration.
+
+    ! (MS) added: calculate elastic Work of Breathing (WOBe)
+   !  call calculate_wobe(Pcw_ei, ppl_ei, vt_ei-vt_ee, WOBe_ms) ! same value as below
+    call calculate_wobe(Pcw_ei, ppl_ei, sum_tidal, WOBe_ms)
+
+    WOBr_ms = WOBr_ms - 0.5_dp * sum_tidal * abs(ppl_ei+ppl_init) ! in Pa.mm3. Final resistive WOB.
+
+    ! (MS) added: calculate total Work of Breathing (WOBt)
+    WOBt = WOBe_ms + WOBr_ms ! in mm3.Pa
+    WOBt = WOBt * 1.0e-9_dp !* (0.010197/10) * 1.0e-6_dp ! convert 1 Pa.mm3 to 1 cmH2O.L. Then *10 for equivalent of 10 cmH2O.L
+    ! Cabello 2006: "One joule is the energy needed to move 1 l of gas through a 10-cmH2O pressure gradient"
+    
+    call calculate_pob(WOBt,POB,ttime,sum_tidal,work_per_litre)
+
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
-         sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
+         sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp,&
+         POB,WOBt,work_per_litre,WOBe_ms,WOBr_ms)
    
     ! (MS) added: start.
     write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) ! defined below:
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) ! defined below:
     ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
     ! between points of apparent zero flow at the beginning and end of inspiration.
 
     ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
     write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+6_dp)
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
     ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
     write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_vt-peep)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+    write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
+    (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
     ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
-        
-   ! Commented out below bc the values don't seem normal compared to lit values (Cabello 2006)
-   !  write(*,'('' Work of Breathing (cmH2O.L) = '',F10.2,'' J'')') &
-   !  pptrans/98.0665_dp*1.0e-1_dp * (vt_ei-vt_ee)/1.0e+6_dp ! 1 Joule = 1L.10cmH2O (Cabello 2006). Convert 1 Pa.mm3 to 10cmH2O.L
-   !  ! simple estimation defined by Amirav 2024 in Children
-
-   !  write(*,'('' Work per Litre = '',F10.2,'' J/L'')') &
-   !  (abs(area_ee - area_ei)/98.0665_dp*1.0e-1_dp*1.0e-6_dp)/((vt_ei-vt_ee)/1.0e+6_dp) ! 1 Joule = 1L.10cmH2O (Cabello 2006). Convert 1 Pa.mm3 to 10cmH2O.L
-   !  ! WOB: the area on a [Campbell] pressure–volume diagram" Cabello 2006
-   !  ! NB: Campbell diagram needs predicted Chest Wall Compliance which is a pain to calc. And not that precise either (Chen 2015, Intensive Care Med Exp)
-   !  ! "work per liter of ventilation (J/l) is the work per cycle divided by the tidal volume" Cabello 2006
-   !  ! "normal Work per Litre is ~ 0.35 J/L" Mancebo 1995 (1st), Cabello 2006 (2nd)
-
-   !  write(*,'('' Power of breathing = '',F10.2,'' J/min'')') &
-   !  abs((area_ee - area_ei)/98.0665_dp*1.0e-1_dp*1.0e-6_dp) * (1/T_interval)*60 ! defined below:
-   !  ! "WOB can be expressed in work per unit of time, multiplying joules per cycle by the respiratory rate" Cabello 2006
-   !  ! "normal Power of Breathing is ~ 2.4 J/min" Mancebo 1995 (1st), Cabello 2006 (2nd)
    
     print * ! new line
-   
-    ! (MS) added: end.
-    !  print *,"Sampled timestamps:",time_sample ! (MS) added
-    !  print *,"Transpulmonary pressure",transpulm_press
-    !  print *,"Tidal vol",tidal_vol
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
 !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
@@ -362,16 +362,16 @@ contains
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
        sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
-       WOB_insp,expiration_type,dpmus,converged,iter_step)
+       WOB_insp,expiration_type,dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
 
     integer,intent(in) :: num_itns
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
          err_tol,init_vol,pmus_factor_ex,pmus_factor_in,pmus_step, &
          press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
-    real(dp),intent(inout):: pptrans ! (MS) edited: made pptrans (inout) instead of (in)
+    real(dp),intent(inout):: pptrans, Pcw_ei, WOBr_ms ! (MS) edited: made pptrans (inout) instead of (in)
     real(dp) :: last_vol,current_vol,Pcw,ppl_current,prev_flow,p_mus, &
          sum_dpmus,sum_dpmus_ei,sum_expid,sum_tidal,WOBe,WOB_insp,WOBe_insp, &
-         WOBr,WOBr_insp
+         WOBr,WOBr_insp, ppl_prev ! (MS) added: ppl_prev
     character,intent(in) :: expiration_type*(*)
     ! Local variables
     integer :: iter_step
@@ -434,17 +434,26 @@ contains
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
          pptrans)!calculate work of breathing
-    last_vol=current_vol
+    ppl_prev = ppl_current ! (MS) added
+    call update_pleural_pressure(ppl_current) ! new pleural pressure (MS) added: moved Ppl calc here (was in evaluate_vent)
+    if(elem_field(ne_Vdot,1).gt.0.0_dp)then ! (MS) WOBr only during Inspiration
+       call calculate_wobr(ppl_current,current_vol,last_vol,WOBr_ms)
+    endif
     Pcw = (chestwall_restvol - current_vol)/chest_wall_compliance
+    last_vol=current_vol
     
     ! increment the tidal volume, or the volume expired
     if(elem_field(ne_Vdot,1).gt.0.0_dp)then
        sum_tidal = sum_tidal+elem_field(ne_Vdot,1)*dt
+       Pcw_ei = Pcw ! (MS) added: keep updating Pcw as long as inspiring. Final value is Pressure at EI tidal volume.
+       ! this will be used to calc WOBe
     else
        sum_expid = sum_expid-elem_field(ne_Vdot,1)*dt
        if(prev_flow.gt.0.0_dp)then
-          WOBe_insp = (WOBe+sum_tidal*ptrans_frc*1.0e-9_dp)*(30.0_dp/Tinsp)
-          WOBr_insp = WOBr*(30.0_dp/Tinsp)
+         !  WOBe_insp = (WOBe+sum_tidal*ptrans_frc*1.0e-9_dp)*(30.0_dp/Tinsp)
+         !  WOBr_insp = WOBr*(30.0_dp/Tinsp)
+          WOBe_insp = (WOBe+sum_tidal*ptrans_frc*1.0e-9_dp)*(60.0_dp/T_interval) ! (MS) edited: changed the respiratory rate
+          WOBr_insp = WOBr*(60.0_dp/T_interval) !(MS) edited: changed the respiratory rate
           WOB_insp = WOBe_insp+WOBr_insp
           WOBe = 0.0_dp
           WOBr = 0.0_dp
@@ -1006,6 +1015,75 @@ contains
 
 !!!#############################################################################
 
+  subroutine calculate_wobr(ppl_current,current_vol,last_vol,WOBr_ms)
+   ! this is incomplete WOBr
+   ! final WOBr is calculated after each cycle (need complete inspiratory limb, at least)
+   
+   real(dp) :: ppl_current,ppl_prev,current_vol,last_vol,WOBr_ms
+   ! Local variables
+   real(dp) :: area
+   character(len=60) :: sub_name
+
+   ! --------------------------------------------------------------------------
+
+   sub_name = 'calculate_wobr'
+   call enter_exit(sub_name,1)
+
+   area = abs(ppl_current) * abs(current_vol-last_vol) ! in Pa.mm3
+   WOBr_ms = WOBr_ms + area ! in Pa.mm3
+
+   call enter_exit(sub_name,2)
+
+end subroutine calculate_wobr
+
+!!!#############################################################################
+
+  subroutine calculate_wobe(Pcw_ei, Ppl_ei, sum_tidal, WOBe_ms)
+   ! call after completing each cycle
+
+  real(dp) :: Pcw_ei, Ppl_ei, sum_tidal, WOBe_ms
+  ! Local variables
+  character(len=60) :: sub_name
+
+  ! --------------------------------------------------------------------------
+
+  sub_name = 'calculate_wobe'
+  call enter_exit(sub_name,1)
+
+  ! The area of the triangle formed by: Ppl_ei, Pcw_ei, and tidal volume
+  WOBe_ms = sum_tidal * abs(Pcw_ei-Ppl_ei) / 2.0_dp
+!   write(*,'('' Elastic WOB (MS) ='',F7.3,''J'')')WOBe_ms * 1.0e-9_dp !* (0.010197/10) * 1.0e-6_dp
+
+  call enter_exit(sub_name,2)
+
+  end subroutine calculate_wobe
+
+!!!#############################################################################
+
+  subroutine calculate_pob(WOBt,POB,ttime,sum_tidal,work_per_litre)
+    ! call after completing each cycle
+
+   real(dp) :: WOBt, POB, ttime, sum_tidal, work_per_litre
+   ! Local variables
+   real(dp) :: resp_rate, minute_ventilation
+   character(len=60) :: sub_name
+
+   ! --------------------------------------------------------------------------
+
+   sub_name = 'calculate_pob'
+   call enter_exit(sub_name,1)
+
+   resp_rate = 60.0_dp/ttime ! breaths/min. ttime is the duration of this cycle
+   POB = WOBt*resp_rate ! J * breaths/min = J/min. Power of Breathing
+   minute_ventilation = sum_tidal* 1.0e-6_dp*resp_rate ! L/min
+   work_per_litre = POB/minute_ventilation ! J/min / L/min = J/L. To compare w/ Mancebo 1995's normal value, 0.35 J/L
+
+   call enter_exit(sub_name,2)
+
+ end subroutine calculate_pob
+
+!!!#############################################################################
+
   subroutine read_params_main(num_brths, num_itns, dt, err_tol)
 
     integer,intent(out) :: num_brths, num_itns
@@ -1306,10 +1384,12 @@ contains
 !!!#############################################################################
 
   subroutine write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
-       pmus_step,sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp)
+       pmus_step,sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp,&
+       POB,WOBt,work_per_litre,WOBe_ms,WOBr_ms)
 
     real(dp),intent(in) :: init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp
+    real(dp),intent(in) :: POB,WOBt,work_per_litre,WOBe_ms,WOBr_ms ! (MS) added   
     ! Local variables
     character(len=60) :: sub_name
 
@@ -1332,6 +1412,11 @@ contains
     write(*,'('' elastic WOB ='',F7.3,''J/min'')')WOBe_insp
     write(*,'('' resistive WOB='',F7.3,''J/min'')')WOBr_insp
     ! (MS) added: Total WOB = Elastic WOB + Flow-Resistive WOB. Amirav 2021 in Children.
+    write(*,'('' Resistive WOB (MS) ='',F7.3,''J'')')WOBr_ms* 1.0e-9_dp
+    write(*,'('' Elastic WOB (MS) ='',F7.3,''J'')')WOBe_ms* 1.0e-9_dp
+    write(*,'('' Total WOB (MS) ='',F7.3,''J'')')WOBt
+    write(*,'('' Power of Breathing ='',F7.3,''J/min'')')POB
+    write(*,'('' Work per litre ='',F7.3,''J/L'')')work_per_litre
           
     call enter_exit(sub_name,2)
 
