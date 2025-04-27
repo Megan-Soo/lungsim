@@ -103,24 +103,20 @@ contains
 
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
-
-   !  call read_params_evaluate_flow(gdirn, chest_wall_compliance, &
-   !     constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-   !     refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
     
-   print *, 'Read FRC: ', FRC
-   print *, 'Read T_interval: ', T_interval ! sec/cycle
-   print *, 'Respiratory rate (bpm): ', (1/T_interval)*60 ! cycle/min
-   print *, 'Read GDirn: ', Gdirn
-   print *, 'Read press_in: ', press_in
-   print *, 'Read i_to_e_ratio: ', i_to_e_ratio
-   print *, 'Read refvol: ', refvol
-   print *, 'Read volume target: ', volume_target
-   print *, 'Read pmus_step: ', pmus_step
-   print *, 'Read chess wall compliance: ', chest_wall_compliance
+   ! print *, 'Read FRC: ', FRC
+   ! print *, 'Read T_interval: ', T_interval ! sec/cycle
+   ! print *, 'Respiratory rate (bpm): ', (1/T_interval)*60 ! cycle/min
+   ! print *, 'Read GDirn: ', Gdirn
+   ! print *, 'Read press_in: ', press_in
+   ! print *, 'Read i_to_e_ratio: ', i_to_e_ratio
+   ! print *, 'Read refvol: ', refvol
+   ! print *, 'Read volume target: ', volume_target
+   ! print *, 'Read pmus_step: ', pmus_step
+   ! print *, 'Read chess wall compliance: ', chest_wall_compliance
 
     expiration_type = 'active' ! (MS) hardset
-    print *, 'Set expiration type: ', expiration_type
+   !  print *, 'Set expiration type: ', expiration_type
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
     ! (MS) set number of samples you want
@@ -199,7 +195,6 @@ contains
 
           ! (MS) added: start.
           write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') comp_dyn
-      
           ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
           write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
           ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
@@ -239,8 +234,6 @@ contains
           ppl_init = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
           ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
        endif
-
-
 
 !!! solve for a single breath (for time up to endtime)
        do while (time.lt.endtime) 
@@ -374,7 +367,7 @@ contains
          WOBr,WOBr_insp, ppl_prev ! (MS) added: ppl_prev
     character,intent(in) :: expiration_type*(*)
     ! Local variables
-    integer :: iter_step
+    integer :: iter_step,ne !(MS) added ne
     real(dp) :: dpmus,err_est,totalC,Tpass,volume_tree
     logical :: converged
     character(len=60) :: sub_name
@@ -395,13 +388,6 @@ contains
     call set_driving_pressures(dpmus,dt,pmus_factor_ex,pmus_factor_in, &
          pmus_step,p_mus,Texpn,Tinsp,ttime,expiration_type)
     prev_flow = elem_field(ne_Vdot,1)
-    
-!!! Solve for a new flow and pressure field
-!!! We will estimate the flow into each terminal lumped
-!!! parameter unit (assumed to be an acinus), so we can calculate flow
-!!! throughout the rest of the tree simply by summation. After summing
-!!! the flows we can use the resistance equation (P0-P1=R1*Q1) to update
-!!! the pressures throughout the tree.
     
     !initialise Qinit to the previous flow
     elem_field(ne_Vdot0,1:num_elems) = elem_field(ne_Vdot,1:num_elems)
@@ -711,17 +697,6 @@ contains
        !estimate an elastic recoil pressure for the unit
             unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
-
-      !  if(ttime.le.Tinsp+0.5_dp*dt)then ! (MS) edited different cc value for insp and exp
-      !  !estimate an elastic recoil pressure for the unit
-      !  unit_field(nu_pe,nunit) = cc_pe/2.0_dp*(3.0_dp*a_pe+b_pe)*(lambda**2.0_dp &
-      !  -1.0_dp)*exp_term/lambda
-      !  else ! if exp
-      !  !estimate an elastic recoil pressure for the unit
-      !    unit_field(nu_pe,nunit) = cc_pe/2.0_dp*(3.0_dp*a_pe+b_pe)*(lambda**3.0_dp & ! increase Vol ratio effect
-      !    -1.0_dp)*exp_term/lambda
-      !  endif
-
     enddo !nunit
 
     call enter_exit(sub_name,2)
@@ -1171,115 +1146,6 @@ end subroutine calculate_wobr
 
   end subroutine read_params_evaluate_flow
 
-!   subroutine read_params_evaluate_flow (gdirn, chest_wall_compliance, &
-!        constrict, COV, FRC, i_to_e_ratio, pmus_step, press_in,&
-!        refvol, RMaxMean, RMinMean, T_interval, volume_target, expiration_type)
-
-!     integer,intent(out) :: gdirn
-!     real(dp),intent(out) :: chest_wall_compliance, constrict, COV,&
-!        FRC, i_to_e_ratio, pmus_step, press_in,&
-!        refvol, RMaxMean, RMinMean, T_interval, volume_target
-!     character,intent(out) :: expiration_type*(*)
-
-!     ! Local variables
-!     character(len=100) :: buffer, label
-!     integer :: pos
-!     integer, parameter :: fh = 15
-!     integer :: ios
-!     integer :: line
-!     character(len=60) :: sub_name
-
-!     ! --------------------------------------------------------------------------
-
-!     ios = 0
-!     line = 0
-!     sub_name = 'read_params_evaluate_flow'
-   !  call enter_exit(sub_name,1)
-
-!     ! following values are examples from control.txt
-!     !    T_interval = 4.0_dp !s
-!     !    gdirn = 3
-!     !    press_in = 0.0_dp !Pa
-!     !    COV = 0.2_dp
-!     !    RMaxMean = 1.29_dp
-!     !    RMinMean = 0.78_dp
-!     !    i_to_e_ratio = 0.5_dp !dimensionless
-!     !    refvol = 0.6_dp !dimensionless
-!     !    volume_target = 8.0e5_dp !mm^3  800 ml
-!     !    pmus_step = -5.4_dp * 98.0665_dp !-5.4 cmH2O converted to Pa
-!     !    expiration_type = 'passive' ! or 'active'
-!     !    chest_wall_compliance = 0.2e6_dp/98.0665_dp !(0.2 L/cmH2O --> mm^3/Pa)
-
-!     open(fh, file='Parameters/params_evaluate_flow.txt')
-
-!     ! ios is negative if an end of record condition is encountered or if
-!     ! an endfile condition was detected.  It is positive if an error was
-!     ! detected.  ios is zero otherwise.
-
-!     do while (ios == 0)
-!        read(fh, '(A)', iostat=ios) buffer
-!        if (ios == 0) then
-!           line = line + 1
-
-!           ! Find the first instance of whitespace.  Split label and data.
-!           pos = scan(buffer, '    ')
-!           label = buffer(1:pos)
-!           buffer = buffer(pos+1:)
-
-!           select case (label)
-!           case ('FRC')
-!              read(buffer, *, iostat=ios) FRC
-!              print *, 'Read FRC: ', FRC
-!           case ('constrict')
-!              read(buffer, *, iostat=ios) constrict
-!              print *, 'Read constrict: ', constrict
-!           case ('T_interval')
-!              read(buffer, *, iostat=ios) T_interval
-!              print *, 'Read T_interval: ', T_interval
-!           case ('Gdirn')
-!              read(buffer, *, iostat=ios) gdirn
-!              print *, 'Read Gdirn: ', gdirn
-!           case ('press_in')
-!              read(buffer, *, iostat=ios) press_in
-!              print *, 'Read press_in: ', press_in
-!           case ('COV')
-!              read(buffer, *, iostat=ios) COV
-!              print *, 'Read COV: ', COV
-!           case ('RMaxMean')
-!              read(buffer, *, iostat=ios) RMaxMean
-!              print *, 'Read RMaxMean: ', RMaxMean
-!           case ('RMinMean')
-!              read(buffer, *, iostat=ios) RMinMean
-!              print *, 'Read RMinMean: ', RMinMean
-!           case ('i_to_e_ratio')
-!              read(buffer, *, iostat=ios) i_to_e_ratio
-!              print *, 'Read i_to_e_ratio: ', i_to_e_ratio
-!           case ('refvol')
-!              read(buffer, *, iostat=ios) refvol
-!              print *, 'Read refvol: ', refvol
-!           case ('volume_target')
-!              read(buffer, *, iostat=ios) volume_target
-!              print *, 'Read volume_target: ', volume_target
-!           case ('pmus_step')
-!              read(buffer, *, iostat=ios) pmus_step
-!              print *, 'Read pmus_step_coeff: ', pmus_step
-!           case ('expiration_type')
-!              read(buffer, *, iostat=ios) expiration_type
-!              print *, 'Read expiration_type: ', expiration_type
-!           case ('chest_wall_compliance')
-!              read(buffer, *, iostat=ios) chest_wall_compliance
-!              print *, 'Read chest_wall_compliance: ', chest_wall_compliance
-!           case default
-!              print *, 'Skipping invalid label at line', line
-!           end select
-!        end if
-!     end do
-
-!     close(fh)
-   !  call enter_exit(sub_name,2)
-
-!   end subroutine read_params_evaluate_flow
-
 !!!#############################################################################
 
   subroutine two_unit_test
@@ -1408,13 +1274,15 @@ end subroutine calculate_wobr
          100*(current_vol-init_vol)/init_vol
     write(*,'('' Difference from target Vt = '',F8.2,'' %'')') &
          100*(volume_target-sum_tidal)/volume_target
-    write(*,'('' Total Work of Breathing ='',F7.3,''J/min'')')WOB_insp
-    write(*,'('' elastic WOB ='',F7.3,''J/min'')')WOBe_insp
-    write(*,'('' resistive WOB='',F7.3,''J/min'')')WOBr_insp
+   !  write(*,'('' Total Work of Breathing ='',F7.3,''J/min'')')WOB_insp
+   !  write(*,'('' elastic WOB ='',F7.3,''J/min'')')WOBe_insp
+   !  write(*,'('' resistive WOB='',F7.3,''J/min'')')WOBr_insp
+
     ! (MS) added: Total WOB = Elastic WOB + Flow-Resistive WOB. Amirav 2021 in Children.
     write(*,'('' Resistive WOB (MS) ='',F7.3,''J'')')WOBr_ms* 1.0e-9_dp
     write(*,'('' Elastic WOB (MS) ='',F7.3,''J'')')WOBe_ms* 1.0e-9_dp
     write(*,'('' Total WOB (MS) ='',F7.3,''J'')')WOBt
+    write(*, *)
     write(*,'('' Power of Breathing ='',F7.3,''J/min'')')POB
     write(*,'('' Work per litre ='',F7.3,''J/L'')')work_per_litre
           
