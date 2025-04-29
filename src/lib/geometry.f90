@@ -416,6 +416,9 @@ contains
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
+    if(allocated(init_vols))then
+      deallocate(init_vols) ! (MS) added
+    endif
     allocate(init_vols(num_units)) ! (MS) added
     init_vols(1:num_units) = 0.0_dp ! (MS) added
 
@@ -4101,6 +4104,7 @@ contains
    unmapped_units(1:num_units) = 0 ! initialise all to zero
    num_unmapped = num_units ! initialise num_unmapped bef start tallying in read_centroid_signals
    num_mapped = 0 ! initialise num_mapped bef start tallying in read_centroid_signals
+   unmapped_voxels = 0 ! initialise num unmapped voxels
 
    call enter_exit(sub_name,2)
 
@@ -4140,9 +4144,9 @@ contains
        y = node_xyz(2,np)
        z = node_xyz(3,np)
       ! check if unit w/in bbox
-       if (x >= xmin .and. x < xmax .and.&
-        y >= ymin .and. y < ymax .and.&
-         z >= zmin .and. z < zmax) then
+       if (x >= xmin .and. x <= xmax .and.&
+        y >= ymin .and. y <= ymax .and.&
+         z >= zmin .and. z <= zmax) then
             mapped = mapped+1 ! update total num units mapped to this centroid
             
             if (mapped>max_cols)then
@@ -4166,12 +4170,16 @@ contains
 
     num_unmapped = num_unmapped-mapped ! update num unmapped units
     write(*, '(A,I6,A)', advance='no') CHAR(13) // " Num unmapped units: ", num_unmapped, "      "
-    num_mapped = num_unmapped+mapped
+    num_mapped = num_mapped+mapped
 
     ! store signals in 2d array
     do frame=1,size(signals)
       signals_2d(idx_centroid,frame) = signals(frame)
     enddo
+
+    if(mapped==0)then
+      unmapped_voxels = unmapped_voxels + 1
+    endif
 
     call enter_exit(sub_name,2)
 

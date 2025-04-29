@@ -60,10 +60,8 @@ contains
     !                                   models) is z, supine is y.
     integer :: iter_step,n,ne,num_brths,num_itns,nunit,np,idx,num_zero_rows
     real(dp) :: chestwall_restvol     ! resting volume of chest wall
-    real(dp) :: chest_wall_compliance ! constant compliance of chest wall
     real(dp) :: constrict             ! for applying uniform constriction
     real(dp) :: COV                   ! COV of tissue compliance
-    real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
     real(dp) :: p_mus                 ! muscle (driving) pressure
     real(dp) :: pmus_factor_ex        ! pmus_factor (_in and _ex) used to scale 
     real(dp) :: pmus_factor_in        ! modifies driving pressures to converge 
@@ -72,19 +70,16 @@ contains
     real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
     real(dp) :: press_in              ! constant pressure at entry to model (Pa)
     real(dp) :: press_in_total        ! dynamic pressure at entry to model (Pa)
-    real(dp) :: refvol                ! proportion of model for 'zero stress'
     real(dp) :: RMaxMean              ! ratio max to mean volume
     real(dp) :: RMinMean              ! ratio min to mean volume
     real(dp) :: sum_expid             ! sum of expired volume  (mm^3)
     real(dp) :: sum_tidal             ! sum of inspired volume  (mm^3)
     real(dp) :: Texpn                 ! time for expiration (s)
-    real(dp) :: T_interval            ! the total length of the breath (s)
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
-    real(dp) :: volume_target         ! the target tidal volume (mm^3)
     integer :: stepcount ! (MS) added
 
-    real(dp) :: dpmus,dt,endtime,err_est,err_tol,FRC,init_vol,last_vol, &
+    real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
          sum_dpmus,sum_dpmus_ei,time,totalc,Tpass,ttime,volume_tree,WOBe,WOBr, &
          WOBe_insp,WOBr_insp,WOB_insp
@@ -110,9 +105,13 @@ contains
     last_vol = 0.0_dp
     stepcount = 0 ! (MS) added
     dpmus = 0 ! (MS) added
+    undef = 0.0_dp
 
+    print *, "Percentage unmapped voxels:", &
+         100.0_dp*unmapped_voxels/num_voxels
+    print *, "Percentage unmapped units:", &
+         100.0_dp*num_unmapped/num_units
    call get_mapped_units_dvdt ! (MS) added
-   stop
 
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
@@ -139,7 +138,7 @@ contains
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean) ! (MS) edited: replaced w/ define_init_vol called in python script
-    undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
+    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1))
 
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
@@ -147,7 +146,7 @@ contains
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
-         (init_vol-volume_tree)/1.0e+6_dp !in L
+         init_vol/1.0e+6_dp !in L
     write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
@@ -160,6 +159,8 @@ contains
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
 
     chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
+    print *, "Chest wall compliance",chest_wall_compliance
+    print *, "Ppl current",ppl_current
     Pcw = (chestwall_restvol - init_vol)/chest_wall_compliance
     write(*,'('' Chest wall RV = '',F8.3,'' L'')') chestwall_restvol/1.0e+6_dp
         
@@ -700,7 +701,7 @@ contains
             elem_field(ne_Vdot,ne) !in mm^3
       
       units_dvdt(stepcount,nunit) = elem_field(ne_Vdot,ne)*dt ! (MS) added: update units_dvdt too
-      if(ieee_is_nan(units_dvdt(stepcount,nunit)).or.units_dvdt(stepcount,nunit)==0.0_dp)then
+      if(ieee_is_nan(units_dvdt(stepcount,nunit)))then
          print *,"Node",np,"dvdt",units_dvdt(stepcount,nunit)
          stop
       endif
@@ -872,6 +873,15 @@ contains
          Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
                (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
                exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
+         if(ieee_is_nan(Q))then
+            print *,"In estimate_flow, Node",elem_nodes(2,units(nunit)),"Q",Q
+            print *,"unit_field(nu_comp,nunit)",unit_field(nu_comp,nunit)
+            print *,"elem_field(ne_t_resist,ne)",elem_field(ne_t_resist,ne)
+            print *,"alpha",alpha
+            print *,"beta",beta
+            print *,"Qinit",Qinit
+            stop
+         endif
 
          ! (MS) get flow from prev 2 iterations
          unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
@@ -881,6 +891,13 @@ contains
          !!!    includes flow estimates from previous two iterations
          unit_field(nu_Vdot0,nunit) = 0.75_dp*unit_field(nu_Vdot2,nunit)+ &
                0.25_dp*(Q+unit_field(nu_Vdot1,nunit))*0.5_dp
+         if(ieee_is_nan(unit_field(nu_Vdot0,nunit)))then
+            print *,"In estimate_flow, unit_field(nu_Vdot0,nunit)",unit_field(nu_Vdot0,nunit)
+            print *,"unit_field(nu_Vdot1,nunit)",unit_field(nu_Vdot1,nunit)
+            print *,"unit_field(nu_Vdot2,nunit)",unit_field(nu_Vdot2,nunit)
+            print *,"Q",Q
+            stop
+         endif
 
          flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne)
          if(abs(flow_diff).gt.zero_tol) &
@@ -892,12 +909,22 @@ contains
          !!! - SIMPLER OPTIONS JUST FORCE IT TO CONVERGE WHEN ITS NOT
          elem_field(ne_Vdot,ne) = (unit_field(nu_Vdot0,nunit)&
          +unit_field(nu_Vdot1,nunit))/2.0_dp ! (MS) current iter elem airflow = ave of unit's iter-1 & current iter flows
+         if(ieee_is_nan(elem_field(ne_Vdot,ne)))then
+            print *,"In estimate_flow, Node",elem_nodes(2,units(nunit)),"dV",elem_field(ne_Vdot,ne)
+            print *,"unit_field(nu_Vdot0,nunit)",unit_field(nu_Vdot0,nunit)
+            print *,"unit_field(nu_Vdot1,nunit)",unit_field(nu_Vdot1,nunit)
+            stop
+         endif
       
          unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne) ! (MS) update unit's current iter airflow for model
 
        ! (MS) added else for processing mapped units
       else ! Q for mapped units at this timestep is the change in volume from prev timestep as measured by PREFUL
          Q = units_dvdt(stepcount,nunit)/dt
+         if(ieee_is_nan(Q))then
+            print *,"Node",elem_nodes(2,units(nunit)),"Q",Q
+            stop
+         endif
          
          ! update unit's flows for prev two iterations from current iter
          unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
@@ -1036,6 +1063,7 @@ contains
    do idx=1,num_voxels
       ! Collect row of mapped nunit values for eacj voxel
       count_nonzero = count(mapped_units(idx, :) /= 0) ! Count nonzero elements
+      if (count_nonzero == 0) cycle ! skip if no mapped units
 
       ! Allocate array for nonzero values
       if (allocated(nonzero_values))deallocate(nonzero_values)
@@ -1049,15 +1077,12 @@ contains
       init_vol_total = 0.0_dp ! reset init_vol_total
       do mapped=1,count_nonzero
          nunit = nonzero_values(mapped)
-         init_vol_total = init_vol_total + init_vols(nunit) ! get init vol of air in this voxel region
-
-         ! if(nunit==num_units)then
-         !    print *,"nunit",num_units,"mapped to idx_centroid",idx
-         !    idx2= idx
-         !    print *,"init_vol_total",init_vol_total
-         ! endif
+         ! init_vol_total = init_vol_total + init_vols(nunit) ! get init vol of air in this voxel region
+         ! actually, maybe don't need init_vols. just take from unit_field(nu_vol,nunit),
+         ! as long as this subroutine is called after define_init_volume in py script
+         init_vol_total = init_vol_total + unit_field(nu_vol,nunit) ! get init vol of air in this voxel region
       enddo
-      print *,"idx",idx,"init_vol_total",init_vol_total
+      ! print *,"idx",idx,"init_vol_total",init_vol_total
    
       do step=1,num_steps
          if (step==1)then
@@ -1069,18 +1094,24 @@ contains
 
          ! Divide dV_total among the units w/in this voxel
          dv_unit = dv_total/count_nonzero
+         if(ieee_is_nan(dv_unit))then
+            print *,"dv_unit",dv_unit,"dv_total",dv_total,"count_nonzero",count_nonzero
+            stop
+         endif
          
          ! fill dv_unit at each timestep for the voxel's mapped units
          do mapped=1,count_nonzero
             nunit=nonzero_values(mapped)
             units_dvdt(step,nunit) = dv_unit
+            if(ieee_is_nan(units_dvdt(step,nunit)))then
+               print *,"Node",elem_nodes(2,units(nunit)),"dvdt",units_dvdt(step,nunit)
+               stop
+            endif
          enddo
       enddo
    enddo
    ! print *,"Idx",idx2,"FV%",signals_2d(idx2,1:num_steps)
    ! print *, "dvdt Node num",elem_nodes(2,units(num_units)),units_dvdt(1:num_steps,num_units)
-
-   ! call export_dvdt('units_dvdt.txt','groupname')
 
   end subroutine get_mapped_units_dvdt
 

@@ -16,7 +16,7 @@ module arrays
   ! (MS) these are variables that are shareable across subroutines/scripts
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
        num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen,&
-       num_unmapped,num_mapped,num_steps,num_voxels ! (MS) added 
+       num_unmapped,num_mapped,num_steps,num_voxels,unmapped_voxels ! (MS) added 
 
   integer,allocatable :: nodes(:) !allocated in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
@@ -154,7 +154,7 @@ module arrays
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
        units_dvdt,unmapped_units,mapped_units,spaces,signals_2d,& ! (MS) added
-       num_unmapped,num_mapped,num_steps,num_voxels,init_vols ! (MS) added
+       num_unmapped,num_mapped,num_steps,num_voxels,init_vols,unmapped_voxels ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)
