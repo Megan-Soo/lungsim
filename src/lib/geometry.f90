@@ -3298,12 +3298,12 @@ contains
     if(ORDER_SYSTEM(1:3).eq.'fit')then
        nindex = no_hord ! default is Horsfield ordering; could be modified to either type
        do ne = ne_min,ne_max
-          if(elem_field(ne_radius,ne).lt.USER_RAD)then
+          if(elem_field(ne_radius,ne).lt.USER_RAD)then ! (MS) if branch has a radius value
              found = .false.
-             norder = elem_ordrs(nindex,ne)
-             ne0 = elem_cnct(-1,1,ne)
+             norder = elem_ordrs(nindex,ne) ! (MS) get branch's order
+             ne0 = elem_cnct(-1,1,ne) ! (MS) get child branch (?)
              do while(.not.found)
-                if(elem_field(ne_radius,ne0).gt.USER_RAD)then
+                if(elem_field(ne_radius,ne0).gt.USER_RAD)then ! if child's radius greater than minimum radius
                    found = .true.
                    n_max_ord = elem_ordrs(nindex,ne0)
                    max_radius = elem_field(ne_radius,ne0)
