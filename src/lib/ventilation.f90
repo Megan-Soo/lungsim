@@ -67,8 +67,6 @@ contains
     real(dp) :: pmus_factor_in        ! modifies driving pressures to converge 
     !                                   tidal volume and expired volume to the 
     !                                   target volume.
-    real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
-    real(dp) :: press_in              ! constant pressure at entry to model (Pa)
     real(dp) :: press_in_total        ! dynamic pressure at entry to model (Pa)
     real(dp) :: RMaxMean              ! ratio max to mean volume
     real(dp) :: RMinMean              ! ratio min to mean volume
@@ -146,7 +144,7 @@ contains
     write(*,'('' Anatomical deadspace = '',F8.3,'' ml'')') &
          volume_tree/1.0e+3_dp ! in mL
     write(*,'('' Respiratory volume   = '',F8.3,'' L'')') &
-         init_vol/1.0e+6_dp !in L
+         (init_vol-volume_tree)/1.0e+6_dp !in L
     write(*,'('' Total lung volume    = '',F8.3,'' L'')') &
          init_vol/1.0e+6_dp !in L
 
@@ -873,15 +871,6 @@ contains
          Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
                (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
                exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
-         if(ieee_is_nan(Q))then
-            print *,"In estimate_flow, Node",elem_nodes(2,units(nunit)),"Q",Q
-            print *,"unit_field(nu_comp,nunit)",unit_field(nu_comp,nunit)
-            print *,"elem_field(ne_t_resist,ne)",elem_field(ne_t_resist,ne)
-            print *,"alpha",alpha
-            print *,"beta",beta
-            print *,"Qinit",Qinit
-            stop
-         endif
 
          ! (MS) get flow from prev 2 iterations
          unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
@@ -891,11 +880,8 @@ contains
          !!!    includes flow estimates from previous two iterations
          unit_field(nu_Vdot0,nunit) = 0.75_dp*unit_field(nu_Vdot2,nunit)+ &
                0.25_dp*(Q+unit_field(nu_Vdot1,nunit))*0.5_dp
-         if(ieee_is_nan(unit_field(nu_Vdot0,nunit)))then
-            print *,"In estimate_flow, unit_field(nu_Vdot0,nunit)",unit_field(nu_Vdot0,nunit)
-            print *,"unit_field(nu_Vdot1,nunit)",unit_field(nu_Vdot1,nunit)
-            print *,"unit_field(nu_Vdot2,nunit)",unit_field(nu_Vdot2,nunit)
-            print *,"Q",Q
+         if(unit_field(nu_Vdot0,nunit)==0.0_dp)then
+            print *,"Node",elem_nodes(2,units(nunit)),"Q",unit_field(nu_Vdot0,nunit)
             stop
          endif
 
@@ -908,14 +894,7 @@ contains
          !!! ARC: DO NOT CHANGE BELOW. THIS IS NEEDED FOR THE ITERATIVE STEP
          !!! - SIMPLER OPTIONS JUST FORCE IT TO CONVERGE WHEN ITS NOT
          elem_field(ne_Vdot,ne) = (unit_field(nu_Vdot0,nunit)&
-         +unit_field(nu_Vdot1,nunit))/2.0_dp ! (MS) current iter elem airflow = ave of unit's iter-1 & current iter flows
-         if(ieee_is_nan(elem_field(ne_Vdot,ne)))then
-            print *,"In estimate_flow, Node",elem_nodes(2,units(nunit)),"dV",elem_field(ne_Vdot,ne)
-            print *,"unit_field(nu_Vdot0,nunit)",unit_field(nu_Vdot0,nunit)
-            print *,"unit_field(nu_Vdot1,nunit)",unit_field(nu_Vdot1,nunit)
-            stop
-         endif
-      
+                     +unit_field(nu_Vdot1,nunit))/2.0_dp ! (MS) current iter elem airflow = ave of unit's iter-1 & current iter flows      
          unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne) ! (MS) update unit's current iter airflow for model
 
        ! (MS) added else for processing mapped units

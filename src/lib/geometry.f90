@@ -416,11 +416,11 @@ contains
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
-    if(allocated(init_vols))then
-      deallocate(init_vols) ! (MS) added
-    endif
-    allocate(init_vols(num_units)) ! (MS) added
-    init_vols(1:num_units) = 0.0_dp ! (MS) added
+   !  if(allocated(init_vols))then
+   !    deallocate(init_vols) ! (MS) added
+   !  endif
+   !  allocate(init_vols(num_units)) ! (MS) added
+   !  init_vols(1:num_units) = 0.0_dp ! (MS) added
 
     unit_field=0.0_dp ! (MS) set all values in array to zero
     units=0
@@ -4005,23 +4005,23 @@ contains
 
    close(10)
    
-   ! correct unit volumes such that total volume is exactly as specified
-   call volume_of_mesh(volume_estimate,volume_of_tree)
-   factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
-   ! ie., assume negligible conducting airways in img-segmented lung volume
-   do nunit=1,num_units
-      unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
-      ! (MS) added: initialise min & max vol of unit
-      unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
-      unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
-   enddo
+   ! ! correct unit volumes such that total volume is exactly as specified
+   ! call volume_of_mesh(volume_estimate,volume_of_tree)
+   ! factor_adjust = (total_volume-volume_of_tree)/(volume_estimate-volume_of_tree)
+   ! ! ie., assume negligible conducting airways in img-segmented lung volume
+   ! do nunit=1,num_units
+   !    unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)*factor_adjust
+   !    ! (MS) added: initialise min & max vol of unit
+   !    unit_field(nu_vmin,nunit)=unit_field(nu_vol,nunit)
+   !    unit_field(nu_vmax,nunit)=unit_field(nu_vol,nunit)
+   ! enddo
 
-   print *, "Factor adjust", factor_adjust
-   write(*,'('' Number of elements is '',I5)') num_elems
-   write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
-   write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
-   write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (total_volume-volume_of_tree)/1.0e+3_dp
-   write(*,'('' Total initial volume of units: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
+   ! print *, "Factor adjust", factor_adjust
+   ! write(*,'('' Number of elements is '',I5)') num_elems
+   ! write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
+   ! write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
+   ! write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (total_volume-volume_of_tree)/1.0e+3_dp
+   ! write(*,'('' Total initial volume of units: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
 
    call enter_exit(sub_name,2)
 
