@@ -880,10 +880,6 @@ contains
          !!!    includes flow estimates from previous two iterations
          unit_field(nu_Vdot0,nunit) = 0.75_dp*unit_field(nu_Vdot2,nunit)+ &
                0.25_dp*(Q+unit_field(nu_Vdot1,nunit))*0.5_dp
-         if(unit_field(nu_Vdot0,nunit)==0.0_dp)then
-            print *,"Node",elem_nodes(2,units(nunit)),"Q",unit_field(nu_Vdot0,nunit)
-            stop
-         endif
 
          flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne)
          if(abs(flow_diff).gt.zero_tol) &

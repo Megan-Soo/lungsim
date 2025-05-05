@@ -4035,7 +4035,7 @@ contains
     real(dp),intent(in)  :: unit_dvdt(:)         ! list of the unit's volumes at each timestep, dt
     
     ! Local variables
-    integer :: nunit, ne, np, frame, num_unmapped
+    integer :: nunit, ne, np, frame
     character(len=60) :: sub_name
    !  real(dp), allocatable :: dvdt_list(:) ! not sure if actually need this
 
@@ -4054,8 +4054,10 @@ contains
          num_unmapped = num_unmapped + 1
         ! Reallocate the array to hold additional unmapped unit label
          if (num_unmapped > size(unmapped_units)) then
-            if(allocated(unmapped_units)) deallocate(unmapped_units)
-            allocate(unmapped_units(num_unmapped))
+            if(allocated(unmapped_units))then
+               deallocate(unmapped_units)
+               allocate(unmapped_units(num_unmapped))
+            endif
          end if
         
         unmapped_units(num_unmapped) = np
