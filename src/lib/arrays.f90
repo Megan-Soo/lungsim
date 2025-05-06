@@ -71,6 +71,13 @@ module arrays
   real(dp),allocatable :: gasex_field(:,:) !gasexchange specific fields
   real(dp),allocatable :: unit_field(:,:) !properties of elastic units
   real(dp),allocatable :: units_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
+  real(dp),allocatable :: unit_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
+  real(dp),allocatable :: unit_dpdt(:,:) ! (MS) added: array to store pressure of each unit at each dt of a breath cycle
+  real(dp),allocatable :: time_sample(:) ! (MS) added: array to store timestamps of sampled measurements
+  real(dp),allocatable :: transpulm_press(:) ! (MS) added: array to store transpulmonary pressure, pptrans, for vol-press curve
+  real(dp),allocatable :: pleural_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
+  real(dp),allocatable :: muscle_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
+  real(dp),allocatable :: tidal_vol(:)
   real(dp),allocatable :: vertex_xyz(:,:)
   real(dp),allocatable :: node_field(:,:)
   real(dp),allocatable :: scale_factors_2d(:,:)
@@ -154,7 +161,8 @@ module arrays
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
        units_dvdt,unmapped_units,mapped_units,spaces,signals_2d,& ! (MS) added
-       num_unmapped,num_mapped,num_steps,num_voxels,init_vols,unmapped_voxels ! (MS) added
+       num_unmapped,num_mapped,num_steps,num_voxels,init_vols,unmapped_voxels,& ! (MS) added
+       unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)
