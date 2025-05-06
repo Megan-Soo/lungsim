@@ -71,7 +71,7 @@ module arrays
   real(dp),allocatable :: gasex_field(:,:) !gasexchange specific fields
   real(dp),allocatable :: unit_field(:,:) !properties of elastic units
   real(dp),allocatable :: units_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
-  real(dp),allocatable :: unit_dvdt(:,:) ! (MS) added: array to store vol of each unit at each dt of a breath cycle
+  real(dp),allocatable :: unit_dvdt(:,:) ! (MS) added: array to sample global values during a breath cycle
   real(dp),allocatable :: unit_dpdt(:,:) ! (MS) added: array to store pressure of each unit at each dt of a breath cycle
   real(dp),allocatable :: time_sample(:) ! (MS) added: array to store timestamps of sampled measurements
   real(dp),allocatable :: transpulm_press(:) ! (MS) added: array to store transpulmonary pressure, pptrans, for vol-press curve

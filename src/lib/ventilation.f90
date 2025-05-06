@@ -103,6 +103,12 @@ contains
     last_vol = 0.0_dp
     stepcount = 0
 
+    print *, "Percentage unmapped voxels:", &
+          100.0_dp*unmapped_voxels/num_voxels
+     print *, "Percentage unmapped units:", &
+          100.0_dp*num_unmapped/num_units
+    call get_mapped_units_dvdt ! (MS) added
+
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
     
@@ -256,11 +262,11 @@ contains
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
           
-! !!!.......update the estimate of pleural pressure
+! !!!.......update the estimate of pleural pressure (moved into evaluate_vent_step)
 !           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
-         !  call write_flow_step_results(chest_wall_compliance,init_vol, &
-         !       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
+          call write_flow_step_results(chest_wall_compliance,init_vol, &
+               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
 
           ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
           k = nint(ttime / T_sample)  ! Find nearest sampling index
@@ -1040,6 +1046,71 @@ contains
    call enter_exit(sub_name,2)
 
   end subroutine estimate_flow
+
+!!!#############################################################################
+ 
+  subroutine get_mapped_units_dvdt
+ 
+   real(dp) :: init_vol_total,dv_total,dv_unit
+   integer :: idx,count_nonzero,mapped,nunit,step,idx2
+   integer,allocatable :: nonzero_values(:)
+
+   ! loop thru each voxel
+   do idx=1,num_voxels
+      ! Collect row of mapped nunit values for eacj voxel
+      count_nonzero = count(mapped_units(idx, :) /= 0) ! Count nonzero elements
+      if (count_nonzero == 0) cycle ! skip if no mapped units
+
+      ! Allocate array for nonzero values
+      if (allocated(nonzero_values))deallocate(nonzero_values)
+      allocate(nonzero_values(count_nonzero))
+      nonzero_values(1:count_nonzero) = 0 ! initalise
+
+      ! Extract nonzero values ie nunit values of units mapped to this voxel
+      nonzero_values = pack(mapped_units(idx, :), mask=(mapped_units(idx, :) /= 0))
+
+      ! go through nunit values in the nonzero_values array
+      init_vol_total = 0.0_dp ! reset init_vol_total
+      do mapped=1,count_nonzero
+         nunit = nonzero_values(mapped)
+         ! init_vol_total = init_vol_total + init_vols(nunit) ! get init vol of air in this voxel region
+         ! actually, maybe don't need init_vols. just take from unit_field(nu_vol,nunit),
+         ! as long as this subroutine is called after define_init_volume in py script
+         init_vol_total = init_vol_total + unit_field(nu_vol,nunit) ! get init vol of air in this voxel region
+      enddo
+      ! print *,"idx",idx,"init_vol_total",init_vol_total
+
+      do step=1,num_steps
+         if (step==1)then
+            dv_total = (signals_2d(idx,step)/100)*init_vol_total ! FV% = 100%*(V_t-V_exp)/V_exp ==> dV=(V_t-V_exp)=(FV%/100%)*V_exp
+         else
+            ! Calc dV_total in this voxel region at each timestep, given the voxel region's FV%
+            dv_total = ((signals_2d(idx,step)/100)*init_vol_total)-((signals_2d(idx,step-1)/100)*init_vol_total)
+         endif
+
+         ! Divide dV_total among the units w/in this voxel
+         dv_unit = dv_total/count_nonzero
+         if(ieee_is_nan(dv_unit))then
+            print *,"dv_unit",dv_unit,"dv_total",dv_total,"count_nonzero",count_nonzero
+            stop
+         endif
+
+         ! fill dv_unit at each timestep for the voxel's mapped units
+         do mapped=1,count_nonzero
+            nunit=nonzero_values(mapped)
+            units_dvdt(step,nunit) = dv_unit
+            if(ieee_is_nan(units_dvdt(step,nunit)))then
+               print *,"Node",elem_nodes(2,units(nunit)),"dvdt",units_dvdt(step,nunit)
+               stop
+            endif
+         enddo
+      enddo
+   enddo
+   ! print *,"Idx",idx2,"FV%",signals_2d(idx2,1:num_steps)
+   ! print *, "dvdt Node num",elem_nodes(2,units(num_units)),units_dvdt(1:num_steps,num_units)
+
+  end subroutine get_mapped_units_dvdt
+
 !!!#############################################################################
 
   subroutine calculate_work(breath_vol,dt_vol,WOBe,WOBr,pptrans)
