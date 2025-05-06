@@ -167,8 +167,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-    ttime = 0.0_dp ! (MS) added: move ttime initialisation earlier for tissue_compliance
-    call tissue_compliance(chest_wall_compliance,undef,ttime,Tinsp,dt)
+    call tissue_compliance(chest_wall_compliance,undef)
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -415,7 +414,7 @@ contains
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef,ttime,tinsp,dt) ! unit compliances
+    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -660,10 +659,9 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef,ttime,Tinsp,dt)
+  subroutine tissue_compliance(chest_wall_compliance,undef)
 
     real(dp), intent(in) :: chest_wall_compliance,undef
-    real(dp),intent(in) :: ttime, Tinsp, dt ! (MS) added
     ! Local variables
     integer :: ne,nunit
     real(dp),parameter :: a = 0.433_dp
