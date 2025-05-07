@@ -29,6 +29,7 @@ module exports
        export_elem_field, &
        export_terminal_solution, &
        export_dvdt, & ! (MS) added subroutine
+       export_mapped_voxels, & ! (MS) added subroutine
        export_terminal_perfusion,&
        export_terminal_ssgexch, &
        export_triangle_elements, &
@@ -912,6 +913,74 @@ contains
 
   end subroutine export_dvdt
 !
+!##############################################################################
+!
+
+  subroutine export_mapped_voxels(TXTFILE,name) ! (MS) added: export coordinates of mapped voxel centroids from preful
+   !!! Parameters
+       character(len=MAX_FILENAME_LEN),intent(in) :: TXTFILE
+       character(len=MAX_STRING_LEN),intent(in) :: name
+   
+   !!! Local Variables
+       integer :: len_end,nj,VALUE_INDEX,nolist,number,first_empty_col
+       character(len=300) :: writefile
+       logical :: FIRST_NODE
+       
+       ! Clean up empty columns in mapped_voxels
+       first_empty_col = 0 ! Find the first empty row (assuming an empty row is filled with zeros)
+       do nolist = 1, size(mapped_voxels, 2)
+          if (all(mapped_voxels(:, nolist) == 0.0_dp)) then
+             first_empty_col = nolist
+             exit
+          endif
+       enddo
+       if (first_empty_col > 0) then
+          mapped_voxels = mapped_voxels(:, 1:first_empty_col-1)
+       endif
+
+       if(index(TXTFILE, ".exnode")> 0) then !full filename is given
+          writefile = TXTFILE
+       else ! need to append the correct filename extension
+          writefile = trim(TXTFILE)//'.exnode'
+       endif
+       
+       if(size(mapped_voxels,2).GT.0) THEN
+         open(10, file=writefile, status='replace')
+         !**     write the group name
+         write(10,'( '' Group name: '',A)') name(:len_end)
+         FIRST_NODE=.TRUE.
+         number=1
+         !*** Exporting Terminal Solution
+         do nolist=1,size(mapped_voxels,2)
+            !*** Write the field information
+            VALUE_INDEX=1
+            if(FIRST_NODE)THEN
+               write(10,'( '' #Fields=1'' )')
+               write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
+               do nj=1,3
+                  if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
+                  if(nj.eq.2) write(10,'(2X,''y.  '')',advance="no")
+                  if(nj.eq.3) write(10,'(2X,''z.  '')',advance="no")
+                  write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+                  VALUE_INDEX=VALUE_INDEX+1
+               enddo
+            endif !FIRST_NODE
+
+            !**     write voxel number
+             write(10,'(1X,''Node: '',I12)') number ! for each node,
+             ! Write column in one line
+             do nj=1,3
+               write(10,'(2X,4(1X,F12.6))') (mapped_voxels(nj,nolist))      !Coordinates
+             enddo !njj2
+             write(10, *)  ! Newline at the end
+             FIRST_NODE=.FALSE.
+             number = number + 1
+          enddo
+       endif
+      close(10)
+   
+     end subroutine export_mapped_voxels
+   !
 !##############################################################################
 !
 

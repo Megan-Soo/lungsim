@@ -20,6 +20,7 @@ void export_elem_geometry_2d_c(const char *EXELEMFILE, int *EXELEMFILE_LEN,
 void export_terminal_solution_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
 				const char *name, int *name_len);
 void export_dvdt_c(const char *EXNODEFILE, int *EXNODEFILE_LEN, const char *name, int *name_len);
+void export_mapped_voxels_c(const char *EXNODEFILE, int *EXNODEFILE_LEN, const char *name, int *name_len);
 void export_terminal_perfusion_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
 				 const char *name, int *name_len);
 void export_node_geometry_c(const char *EXNODEFILE, int *EXNODEFILE_LEN,
@@ -102,6 +103,14 @@ void export_dvdt(const char *EXNODEFILE, const char *name)
   int name_len = strlen(name);
 
   export_dvdt_c(EXNODEFILE, &filename_len, name, &name_len);
+}
+
+void export_mapped_voxels(const char *EXNODEFILE, const char *name)
+{
+  int filename_len = strlen(EXNODEFILE);
+  int name_len = strlen(name);
+
+  export_mapped_voxels_c(EXNODEFILE, &filename_len, name, &name_len);
 }
 
 void export_terminal_perfusion(const char *EXNODEFILE, const char *name)

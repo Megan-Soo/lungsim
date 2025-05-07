@@ -105,8 +105,10 @@ contains
 
     print *, "Percentage unmapped voxels:", &
           100.0_dp*unmapped_voxels/num_voxels
-     print *, "Percentage unmapped units:", &
+    print *, "Percentage unmapped units:", &
           100.0_dp*num_unmapped/num_units
+    print *, "Percentage mapped units:", &
+          100.0_dp*num_mapped/num_units
     call get_mapped_units_dvdt ! (MS) added
 
 !!! set default values for the parameters that control the breathing simulation
@@ -676,7 +678,7 @@ contains
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
-    real(dp) :: exp_term,lambda,ratio, err_est_comp, C ! (MS) added err_est_comp, C
+    real(dp) :: exp_term,lambda,ratio
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -699,8 +701,8 @@ contains
                *(lambda**2+1.0_dp)/lambda**4)
          unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
          ! add the chest wall (proportionately) in parallel
-         unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-               +1.0_dp/(chest_wall_compliance/dble(num_units)))
+         ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
+         !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
          !estimate an elastic recoil pressure for the unit
          unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
                -1.0_dp)*exp_term/lambda
@@ -712,9 +714,9 @@ contains
 
          ! check unmapped array, derive volume ratio accordingly
          if (elem_nodes(2,ne) == unmapped_units(nunit)) then ! if unmapped unit
-            ratio = unit_field(nu_vol,nunit)/undef            
-
+            
             !calculate a compliance for the tissue unit
+            ratio = unit_field(nu_vol,nunit)/undef            
             lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
             exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
@@ -738,8 +740,7 @@ contains
             lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
             exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
             unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-                  -1.0_dp)*exp_term/lambda
-            
+                  -1.0_dp)*exp_term/lambda            
          endif ! end solve compliance for units
       enddo !nunit
     endif ! end check if initial solve or stepcount>0

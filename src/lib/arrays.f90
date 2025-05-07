@@ -46,7 +46,7 @@ module arrays
   integer,allocatable :: mapped_units(:,:) ! (MS) added
   real(dp),allocatable :: signals_2d(:,:) ! (MS) added
   real(dp),allocatable :: spaces(:) ! (MS) added
-  real(dp),allocatable :: init_vols(:) ! (MS) added to store resting unit volumes at FRC
+  real(dp),allocatable :: mapped_voxels(:,:) ! (MS) added to store coordinates of mapped voxels for export
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -161,7 +161,7 @@ module arrays
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
        units_dvdt,unmapped_units,mapped_units,spaces,signals_2d,& ! (MS) added
-       num_unmapped,num_mapped,num_steps,num_voxels,init_vols,unmapped_voxels,& ! (MS) added
+       num_unmapped,num_mapped,num_steps,num_voxels,mapped_voxels,unmapped_voxels,& ! (MS) added
        unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol ! (MS) added
 
 contains

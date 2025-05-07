@@ -4082,13 +4082,14 @@ contains
 
    num_steps = num_frames ! num_steps is accessible publicly
    num_voxels = num_centroids ! num_voxels is accessible publicly
+   print *,"Num voxels:",num_voxels
 
    allocate(spaces(size(spaces_preful)))
 
    do i=1,size(spaces_preful)
       spaces(i)=spaces_preful(i)
    enddo
-   print *,spaces
+   print *,"Spacing:",spaces
 
    if(allocated(units_dvdt)) deallocate(units_dvdt)
    allocate(units_dvdt(num_frames,num_units))
@@ -4097,6 +4098,10 @@ contains
    if(allocated(mapped_units))deallocate(mapped_units)
    allocate(mapped_units(num_centroids,1))
    mapped_units(1:num_centroids,1) = 0 ! initialise to zero
+
+   if(allocated(mapped_voxels))deallocate(mapped_voxels)
+   allocate(mapped_voxels(3,num_centroids))
+   mapped_voxels = 0.0_dp ! initialise to zero
 
    if(allocated(signals_2d))deallocate(signals_2d)
    allocate(signals_2d(num_voxels,num_steps))
@@ -4121,7 +4126,7 @@ contains
 
     ! Local variables
     real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax
-    integer :: nunit, ne, np, frame, mapped,max_cols
+    integer :: nunit, ne, np, frame, mapped,max_cols, first_empty_col,i
     real(dp),allocatable :: temp_array(:,:)
     character(len=60) :: sub_name
 
@@ -4150,7 +4155,22 @@ contains
         y >= ymin .and. y <= ymax .and.&
          z >= zmin .and. z <= zmax) then
             mapped = mapped+1 ! update total num units mapped to this centroid
+
+            ! Store voxel coordinates for export & visualisation
+            first_empty_col = 0 ! Find the first empty row (assuming an empty row is filled with zeros)
+            do i = 1, size(mapped_voxels, 2)
+               if (all(mapped_voxels(:, i) == 0.0_dp)) then
+                  first_empty_col = i
+                  exit
+               endif
+            enddo
+
+            ! Fill the first empty col with the centroid coordinates
+            if (first_empty_col > 0) then
+               mapped_voxels(:, first_empty_col) = centroid(1:3)
+            endif
             
+            ! Update the mapped_units array
             if (mapped>max_cols)then
                if(allocated(temp_array)) deallocate(temp_array)
                allocate(temp_array(size(mapped_units,1),size(mapped_units,2)))
