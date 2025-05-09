@@ -813,7 +813,7 @@ contains
       endif
       
       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
-         unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
+         unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* & !(MS) added: to be exported as tidal volume
                elem_field(ne_Vdot,ne)
       endif
       
@@ -967,7 +967,7 @@ contains
    do nunit = 1,num_units !for each terminal only (with tissue units attached)
       ne = units(nunit) !local element number
 
-      if (elem_nodes(2,ne)==unmapped_units(nunit)) then
+      if (elem_nodes(2,ne)==unmapped_units(nunit)) then ! if np value matches to unmapped units
          ! Calculate the mean flow into the unit in the time step
          ! alpha is rate of change of pressure at start node of terminal element
          alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
