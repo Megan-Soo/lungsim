@@ -4156,7 +4156,7 @@ contains
          z >= zmin .and. z <= zmax) then
             mapped = mapped+1 ! update total num units mapped to this centroid
 
-            ! Store voxel coordinates for export & visualisation
+            ! Store voxel coordinates for export & visualisation in mapped_voxels
             first_empty_col = 0 ! Find the first empty row (assuming an empty row is filled with zeros)
             do i = 1, size(mapped_voxels, 2)
                if (all(mapped_voxels(:, i) == 0.0_dp)) then

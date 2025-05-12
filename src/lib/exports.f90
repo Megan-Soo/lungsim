@@ -30,6 +30,7 @@ module exports
        export_terminal_solution, &
        export_dvdt, & ! (MS) added subroutine
        export_mapped_voxels, & ! (MS) added subroutine
+       export_mapped_units, & ! (MS) added subroutine
        export_terminal_perfusion,&
        export_terminal_ssgexch, &
        export_triangle_elements, &
@@ -981,6 +982,78 @@ contains
    
      end subroutine export_mapped_voxels
    !
+!##############################################################################
+!
+
+     subroutine export_mapped_units(TXTFILE,name) ! (MS) added: export coordinates of mapped voxel centroids from preful
+      !!! Parameters
+          character(len=MAX_FILENAME_LEN),intent(in) :: TXTFILE
+          character(len=MAX_STRING_LEN),intent(in) :: name
+      
+      !!! Local Variables
+          integer :: len_end,nj,VALUE_INDEX,nolist,i,np,nunit,label
+          character(len=300) :: writefile
+          logical :: FIRST_NODE
+
+          label = 1 ! Initialize label for the first voxel
+
+          if(index(TXTFILE, ".exnode")> 0) then !full filename is given
+             writefile = TXTFILE
+          else ! need to append the correct filename extension
+             writefile = trim(TXTFILE)//'.exnode'
+          endif
+          
+          if(size(mapped_units,2).GT.0) THEN
+            open(10, file=writefile, status='replace')
+            !**     write the group name
+            write(10,'( '' Group name: '',A)') name(:len_end)
+            FIRST_NODE=.TRUE.
+            !*** Exporting mapped units and labels
+            ! mapped_units has n rows of preful voxels. each row stores lists of nunit values mapped to the voxel (lists may be diff lengths)
+            do nolist=1,size(mapped_units,1) ! iterate thru rows
+               !*** Write the field information if not printed before
+               if(FIRST_NODE)THEN
+                  VALUE_INDEX=1
+                  write(10,'( '' #Fields=2'' )')
+                  write(10,'('' 1) coordinates, coordinate, rectangular cartesian, #Components=3'')')
+                  do nj=1,3
+                     if(nj.eq.1) write(10,'(2X,''x.  '')',advance="no")
+                     if(nj.eq.2) write(10,'(2X,''y.  '')',advance="no")
+                     if(nj.eq.3) write(10,'(2X,''z.  '')',advance="no")
+                     write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+                     VALUE_INDEX=VALUE_INDEX+1
+                  enddo
+                  !label value (MS)
+                  write(10,'('' 2) label voxel, field, rectangular cartesian, #Components=1'')')
+                  write(10,'(2X,''1.  '')',advance="no")
+                  write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+                  FIRST_NODE=.FALSE.
+               endif !FIRST_NODE
+   
+               ! for each nolist row (voxel), go through the list of nunit values
+               do i=1,size(mapped_units,2) ! iterate thru cols
+                  nunit = mapped_units(nolist,i)
+                  if(nunit.ne.0)then ! if non-zero value
+                     np = elem_nodes(2,units(nunit))! get Node number
+                  else
+                     cycle ! skip to next iteration
+                  endif
+                  !**     write Node number
+                  write(10,'(1X,''Node: '',I12)') np ! for each node,
+                  ! Write column in one line
+                  do nj=1,3
+                     write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
+                  enddo !njj2
+                  ! assign label for the voxel
+                  write(10,'(2X,4(1X,I12))') (label) !label
+               enddo
+               label = label + 1 ! after each voxel, increment label
+             enddo
+          endif
+         close(10)
+      
+        end subroutine export_mapped_units
+      !
 !##############################################################################
 !
 
