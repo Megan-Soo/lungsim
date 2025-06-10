@@ -231,7 +231,13 @@ contains
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
           vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
           ppl_init = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
-          ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
+          ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle
+
+          ! (MS) reset min max volumes of units
+          do nunit = 1,num_units
+             unit_field(nu_vmin, nunit) = unit_field(nu_vol,nunit) ! reset min vol to vol at end of prev breath
+             unit_field(nu_vmax, nunit) = 0.0_dp ! reset max vol to 0
+          enddo
        endif
 
 !!! solve for a single breath (for time up to endtime)
