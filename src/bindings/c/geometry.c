@@ -15,6 +15,7 @@ void define_data_geometry_c(const char *DATAFILE, int *filename_len);
 void import_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
 void import_ply_triangles_c(const char *ply_file, int *filename_len);
 void internal_mesh_reorder_c();
+void list_tree_statistics_from_parent_c(int *parent, const char *filename, int *filename_len);
 void list_tree_statistics_c(const char *filename, int *filename_len);
 extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target, double *offset, double *spacing);
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
@@ -104,6 +105,12 @@ void list_tree_statistics(const char *filename)
 {
   int filename_len = (int)strlen(filename);
   list_tree_statistics_c(filename, &filename_len);
+}
+
+void list_tree_statistics_from_parent(int parent, const char *filename)
+{
+  int filename_len = (int)strlen(filename);
+  list_tree_statistics_from_parent_c(&parent, filename, &filename_len);
 }
 
 void make_data_grid(int elemlist_len, int elemlist[], int num_target, double offset, double spacing)
