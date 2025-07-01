@@ -13,6 +13,7 @@ void define_node_geometry_c(const char *NODEFILE, int *filename_len);
 void define_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
 void define_data_geometry_c(const char *DATAFILE, int *filename_len);
 void import_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
+void filter_units_in_ply_c(void);
 void import_ply_triangles_c(const char *ply_file, int *filename_len);
 void internal_mesh_reorder_c();
 void list_tree_statistics_c(const char *filename, int *filename_len);
@@ -20,9 +21,6 @@ extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target,
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
 void define_init_volume_c(double *FRC, const char *FIELDFILE, int *filename_len);
-void read_unit_dvdt_c(int *np_read, int *unit_dvdt_list_len, double unit_dvdt_list[]);
-void read_params_c(int *spaces_preful_len, double spaces_preful[], int *num_centroids, int *num_frames);
-void read_centroid_signals_c(int *idx_centroid, int *centroid_list_len, double centroid_list[], int *signals_list_len, double signals_list[]);
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
                             const char *start_from, int *start_from_len, double *start_rad,
@@ -86,6 +84,11 @@ void define_data_geometry(const char *DATAFILE)
   define_data_geometry_c(DATAFILE, &filename_len);
 }
 
+void filter_units_in_ply(void)
+{
+  filter_units_in_ply_c();
+}
+
 void import_node_geometry_2d(const char *NODEFILE)
 {
   int filename_len = (int)strlen(NODEFILE);
@@ -130,23 +133,6 @@ void define_init_volume(double FRC, const char *FIELDFILE)
 {
   int filename_len = (int)strlen(FIELDFILE);
   define_init_volume_c(&FRC, FIELDFILE, &filename_len);
-}
-
-void read_unit_dvdt(int np_read, int unit_dvdt_list_len, double unit_dvdt_list[])
-{
-  read_unit_dvdt_c(&np_read, &unit_dvdt_list_len, unit_dvdt_list);
-}
-
-void read_params(int spaces_preful_len, double spaces_preful[], int num_centroids, int num_frames)
-{
-  read_params_c(&spaces_preful_len, spaces_preful, &num_centroids, &num_frames);
-}
-
-void read_centroid_signals(int idx_centroid, int centroid_list_len, double centroid_list[],
-				  int signals_list_len, double signals_list[])
-{
-  read_centroid_signals_c(&idx_centroid, &centroid_list_len, centroid_list,
-  				 &signals_list_len, signals_list);
 }
 
 int get_local_node_f(const char *ndimension, const char *np_global)

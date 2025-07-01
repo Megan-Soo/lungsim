@@ -1003,14 +1003,14 @@ contains
              writefile = trim(TXTFILE)//'.exnode'
           endif
           
-          if(size(mapped_units,2).GT.0) THEN
+          if(size(mapped_units).GT.0) THEN
             open(10, file=writefile, status='replace')
             !**     write the group name
             write(10,'( '' Group name: '',A)') name(:len_end)
             FIRST_NODE=.TRUE.
             !*** Exporting mapped units and labels
             ! mapped_units has n rows of preful voxels. each row stores lists of nunit values mapped to the voxel (lists may be diff lengths)
-            do nolist=1,size(mapped_units,1) ! iterate thru rows
+            do nolist=1,size(mapped_units) ! iterate thru rows
                !*** Write the field information if not printed before
                if(FIRST_NODE)THEN
                   VALUE_INDEX=1
@@ -1030,24 +1030,15 @@ contains
                   FIRST_NODE=.FALSE.
                endif !FIRST_NODE
    
-               ! for each nolist row (voxel), go through the list of nunit values
-               do i=1,size(mapped_units,2) ! iterate thru cols
-                  nunit = mapped_units(nolist,i)
-                  if(nunit.ne.0)then ! if non-zero value
-                     np = elem_nodes(2,units(nunit))! get Node number
-                  else
-                     cycle ! skip to next iteration
-                  endif
-                  !**     write Node number
-                  write(10,'(1X,''Node: '',I12)') np ! for each node,
-                  ! Write column in one line
-                  do nj=1,3
-                     write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
-                  enddo !njj2
-                  ! assign label for the voxel
-                  write(10,'(2X,4(1X,I12))') (label) !label
-               enddo
-               label = label + 1 ! after each voxel, increment label
+               nunit = mapped_units(nolist)
+               np = elem_nodes(2,units(nunit))! get Node number
+
+               !**     write Node number
+               write(10,'(1X,''Node: '',I12)') np ! for each node,
+               ! Write column in one line
+               do nj=1,3
+                  write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
+               enddo !njj2
              enddo
           endif
          close(10)

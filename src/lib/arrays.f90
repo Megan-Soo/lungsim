@@ -43,7 +43,7 @@ module arrays
   integer,allocatable :: triangle(:,:)
   integer,allocatable :: units(:)
   integer,allocatable :: unmapped_units(:) ! (MS) added to store units tt aren't mapped to PREFUL
-  integer,allocatable :: mapped_units(:,:) ! (MS) added
+  integer,allocatable :: mapped_units(:) ! (MS) added
   real(dp),allocatable :: signals_2d(:,:) ! (MS) added
   real(dp),allocatable :: spaces(:) ! (MS) added
   real(dp),allocatable :: mapped_voxels(:,:) ! (MS) added to store coordinates of mapped voxels for export

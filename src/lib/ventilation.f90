@@ -101,15 +101,6 @@ contains
     sum_tidal = 0.0_dp ! initialise the inspired and expired volumes
     sum_expid = 0.0_dp
     last_vol = 0.0_dp
-    stepcount = 0
-
-    print *, "Percentage unmapped voxels:", &
-          100.0_dp*unmapped_voxels/num_voxels
-    print *, "Percentage unmapped units:", &
-          100.0_dp*num_unmapped/num_units
-    print *, "Percentage mapped units:", &
-          100.0_dp*num_mapped/num_units
-    call get_mapped_units_dvdt ! (MS) added
 
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
@@ -177,7 +168,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-    call tissue_compliance(chest_wall_compliance,undef,stepcount)
+    call tissue_compliance(chest_wall_compliance,undef)
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -241,8 +232,7 @@ contains
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
           vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
           ppl_init = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
-          ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle 
-          stepcount = 0
+          ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle
 
           ! (MS) reset min max volumes of units
           do nunit = 1,num_units
@@ -253,7 +243,6 @@ contains
 
 !!! solve for a single breath (for time up to endtime)
        do while (time.lt.endtime) 
-          stepcount = stepcount + 1 !increment the step count
           ttime = ttime + dt ! increment the breath time
           time = time + dt ! increment the whole simulation time
 
@@ -262,7 +251,7 @@ contains
           endif
 
 !!!.......calculate the flow and pressure distribution for one time-step
-          call evaluate_vent_step(num_itns,stepcount,chest_wall_compliance, &
+          call evaluate_vent_step(num_itns,chest_wall_compliance, &
                chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
                Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
@@ -270,7 +259,7 @@ contains
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
           
-! !!!.......update the estimate of pleural pressure (moved into evaluate_vent_step)
+! !!!.......update the estimate of pleural pressure
 !           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
           call write_flow_step_results(chest_wall_compliance,init_vol, &
@@ -365,16 +354,17 @@ contains
 
   end subroutine evaluate_vent
 
+
 !!!#############################################################################
 
-  subroutine evaluate_vent_step(num_itns,stepcount,chest_wall_compliance, &
+  subroutine evaluate_vent_step(num_itns,chest_wall_compliance, &
        chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol,Pcw, &
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
        sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
        WOB_insp,expiration_type,dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
 
-    integer,intent(in) :: num_itns,stepcount
+    integer,intent(in) :: num_itns
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
          err_tol,init_vol,pmus_factor_ex,pmus_factor_in,pmus_step, &
          press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
@@ -412,7 +402,7 @@ contains
     iter_step=0
     do while (.not.converged)
        iter_step = iter_step+1 !count the iterative steps
-       call estimate_flow(dpmus,dt,stepcount,err_est) !analytic solution for Q
+       call estimate_flow(dpmus,dt,err_est) !analytic solution for Q
        if(iter_step.gt.1.and.err_est.lt.err_tol)then
           converged = .TRUE.
        else if(iter_step.gt.num_itns)then
@@ -428,11 +418,11 @@ contains
        call update_unit_dpdt(dt) ! update dP/dt at the terminal units
     enddo !converged
     
-    call update_unit_volume(dt,stepcount) ! Update tissue unit volumes, unit tidal vols
+    call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef,stepcount) ! unit compliances
+    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -677,10 +667,9 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef,stepcount)
+  subroutine tissue_compliance(chest_wall_compliance,undef)
 
     real(dp), intent(in) :: chest_wall_compliance,undef
-    integer,intent(in) :: stepcount ! (MS) added
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
@@ -694,62 +683,24 @@ contains
 
     !.....dV/dP=1/[(1/2h^2).c/2.(3a+b)exp().(4h(h^2-1)^2)+(h^2+1)/h^2)]
 
-    if (stepcount==0) then ! if initial solve, use vol ratio init_vol/undef
-      do nunit=1,num_units
-         ne=units(nunit)
-         !calculate a compliance for the tissue unit
-         ratio = unit_field(nu_vol,nunit)/undef
-         lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-         exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+   do nunit=1,num_units
+      ne=units(nunit)
+      !calculate a compliance for the tissue unit
+      ratio = unit_field(nu_vol,nunit)/undef
+      lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
+      exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
-         unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-               *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
-               *(lambda**2+1.0_dp)/lambda**4)
-         unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-         ! add the chest wall (proportionately) in parallel
-         ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-         !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
-         !estimate an elastic recoil pressure for the unit
-         unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-               -1.0_dp)*exp_term/lambda
-      enddo
-
-    else
-      do nunit = 1,num_units ! else if timestep!=0, check unmapped array, vol ratio nu_vol/undef if unmapped, else vol ratio vol_dt/undef if mapped
-         ne = units(nunit)
-
-         ! check unmapped array, derive volume ratio accordingly
-         if (elem_nodes(2,ne) == unmapped_units(nunit)) then ! if unmapped unit
-            
-            !calculate a compliance for the tissue unit
-            ratio = unit_field(nu_vol,nunit)/undef            
-            lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-            exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
-
-            unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-                  *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
-                  *(lambda**2+1.0_dp)/lambda**4)
-            unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-            ! ! add the chest wall (proportionately) in parallel
-            ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-            !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
-            !estimate an elastic recoil pressure for the unit
-            unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-                  -1.0_dp)*exp_term/lambda
-
-         else ! if mapped unit
-            ! calculate unit's compliance given dV & updated dP in current timestep
-            unit_field(nu_comp,nunit) = units_dvdt(stepcount,nunit)/unit_field(nu_dpdt,nunit)
-
-            !estimate an elastic recoil pressure for the unit @ current step
-            ratio = unit_field(nu_vol,nunit)/(unit_field(nu_vol,nunit)-units_dvdt(stepcount,nunit)) ! vol ratio def/undef = unit vol current step/ unit vol prev step
-            lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-            exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
-            unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-                  -1.0_dp)*exp_term/lambda            
-         endif ! end solve compliance for units
-      enddo !nunit
-    endif ! end check if initial solve or stepcount>0
+      unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
+            *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
+            *(lambda**2+1.0_dp)/lambda**4)
+      unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
+      ! add the chest wall (proportionately) in parallel
+      ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
+      !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
+      !estimate an elastic recoil pressure for the unit
+      unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
+            -1.0_dp)*exp_term/lambda
+   enddo
 
     call enter_exit(sub_name,2)
 
@@ -789,13 +740,11 @@ contains
 
 !!!#############################################################################
 
-  subroutine update_unit_volume(dt,stepcount)
-   ! shldn't need to edit this since its calculations are based on values derived in estimate_flow
+  subroutine update_unit_volume(dt)
 
     real(dp),intent(in) :: dt
-    integer,intent(in) :: stepcount
     ! Local variables
-    integer :: ne,np,nunit,unit
+    integer :: ne,np,nunit
     character(len=60) :: sub_name
     real(dp) :: current_volume, min_volume, max_volume ! (MS) added
 
@@ -804,43 +753,35 @@ contains
     sub_name = 'update_unit_volume'
     call enter_exit(sub_name,1)
 
-   do nunit = 1,num_units
-      ne = units(nunit)
-      np = elem_nodes(2,ne)
-
-      ! update the volume of the lumped tissue unit
-      unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* &
+    do nunit = 1,num_units
+       ne = units(nunit)
+       np = elem_nodes(2,ne)
+       ! update the volume of the lumped tissue unit
+       unit_field(nu_vol,nunit) = unit_field(nu_vol,nunit)+dt* &
             elem_field(ne_Vdot,ne) !in mm^3
-      
-      units_dvdt(stepcount,nunit) = elem_field(ne_Vdot,ne)*dt ! (MS) added: update units_dvdt too
-      if(ieee_is_nan(units_dvdt(stepcount,nunit)))then
-         print *,"Node",np,"dvdt",units_dvdt(stepcount,nunit)
-         stop
-      endif
-      
-      if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
-         unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* & !(MS) added: to be exported as tidal volume
+       if(elem_field(ne_Vdot,1).gt.0.0_dp)then  !only store inspired volume
+          unit_field(nu_vt,nunit) = unit_field(nu_vt,nunit)+dt* &
                elem_field(ne_Vdot,ne)
-      endif
-      
-      ! Initialize values before assessing each unit
-      min_volume = 1.0E30   ! Large value to ensure the first comparison sets it correctly
-      max_volume = -1.0E30  ! Small value to ensure the first comparison sets it correctly
-      
-      ! Store the current volume for readability ! (MS)
-      current_volume = unit_field(nu_vol, nunit) ! (MS)
+       endif
+       
+       ! Initialize values before assessing each unit
+       min_volume = 1.0E30   ! Large value to ensure the first comparison sets it correctly
+       max_volume = -1.0E30  ! Small value to ensure the first comparison sets it correctly
+       
+       ! Store the current volume for readability ! (MS)
+       current_volume = unit_field(nu_vol, nunit) ! (MS)
 
-      ! (MS) added: Track max and min volumes of each unit at each step in a breath.
-      ! (MS) each breath overwrites the max&min vol for each unit from the previous breath. 
-      ! (MS) Thus, the final values after complete ventilation will be min&max vols of each unit in the LAST breath
-      if (current_volume<min_volume) min_volume = current_volume
-      if (current_volume>max_volume) max_volume = current_volume
-      unit_field(nu_vmax, nunit) = max(unit_field(nu_vmax, nunit), current_volume) ! (MS)
-      unit_field(nu_vmin, nunit) = min(unit_field(nu_vmin, nunit), current_volume) ! (MS)
-      
-   enddo !nunit
+       ! (MS) added: Track max and min volumes of each unit at each step in a breath.
+       ! (MS) each breath overwrites the max&min vol for each unit from the previous breath. 
+       ! (MS) Thus, the final values after complete ventilation will be min&max vols of each unit in the LAST breath
+       if (current_volume<min_volume) min_volume = current_volume
+       if (current_volume>max_volume) max_volume = current_volume
+       unit_field(nu_vmax, nunit) = max(unit_field(nu_vmax, nunit), current_volume) ! (MS)
+       unit_field(nu_vmin, nunit) = min(unit_field(nu_vmin, nunit), current_volume) ! (MS)
+       
+    enddo !nunit
 
-   call enter_exit(sub_name,2)
+    call enter_exit(sub_name,2)
 
   end subroutine update_unit_volume
 
@@ -951,10 +892,9 @@ contains
 
 !!!#############################################################################
 
-  subroutine estimate_flow(dp_external,dt,stepcount,err_est)
+  subroutine estimate_flow(dp_external,dt,err_est)
 
     real(dp),intent(in) :: dp_external,dt
-    integer,intent(in) :: stepcount
     real(dp),intent(out) :: err_est
     ! Local variables
     integer :: ne,nunit, unit
@@ -973,7 +913,10 @@ contains
    do nunit = 1,num_units !for each terminal only (with tissue units attached)
       ne = units(nunit) !local element number
 
-      if (elem_nodes(2,ne)==unmapped_units(nunit)) then ! if np value matches to unmapped units
+      ! if (elem_nodes(2,ne)== mapped_units(nunit)) then ! if unit in defect region
+      if(mapped_units(nunit).ne.0)then
+         Q = 0.0_dp
+      else
          ! Calculate the mean flow into the unit in the time step
          ! alpha is rate of change of pressure at start node of terminal element
          alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
@@ -985,138 +928,41 @@ contains
          Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
                (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
                exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
+      endif 
 
-         ! (MS) get flow from prev 2 iterations
-         unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
-         unit_field(nu_Vdot1,nunit) = unit_field(nu_Vdot0,nunit) !flow at iter-1
+      ! (MS) get flow from prev 2 iterations
+      unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
+      unit_field(nu_Vdot1,nunit) = unit_field(nu_Vdot0,nunit) !flow at iter-1
 
-         !!!    for stability the flow estimate for current iteration
-         !!!    includes flow estimates from previous two iterations
-         unit_field(nu_Vdot0,nunit) = 0.75_dp*unit_field(nu_Vdot2,nunit)+ &
-               0.25_dp*(Q+unit_field(nu_Vdot1,nunit))*0.5_dp
+      !!!    for stability the flow estimate for current iteration
+      !!!    includes flow estimates from previous two iterations
+      unit_field(nu_Vdot0,nunit) = 0.75_dp*unit_field(nu_Vdot2,nunit)+ &
+            0.25_dp*(Q+unit_field(nu_Vdot1,nunit))*0.5_dp
 
-         flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne)
-         if(abs(flow_diff).gt.zero_tol) &
-               err_est = err_est+flow_diff**2 !sum up the error for all elements
-         if(abs(unit_field(nu_Vdot0,nunit)).gt.zero_tol) &
-               flow_sum = flow_sum+unit_field(nu_Vdot0,nunit)**2
-         
-         !!! ARC: DO NOT CHANGE BELOW. THIS IS NEEDED FOR THE ITERATIVE STEP
-         !!! - SIMPLER OPTIONS JUST FORCE IT TO CONVERGE WHEN ITS NOT
-         elem_field(ne_Vdot,ne) = (unit_field(nu_Vdot0,nunit)&
-                     +unit_field(nu_Vdot1,nunit))/2.0_dp ! (MS) current iter elem airflow = ave of unit's iter-1 & current iter flows      
-         unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne) ! (MS) update unit's current iter airflow for model
-
-       ! (MS) added else for processing mapped units
-      else ! Q for mapped units at this timestep is the change in volume from prev timestep as measured by PREFUL
-         Q = units_dvdt(stepcount,nunit)/dt
-         if(ieee_is_nan(Q))then
-            print *,"Node",elem_nodes(2,units(nunit)),"Q",Q
-            stop
-         endif
-         
-         ! update unit's flows for prev two iterations from current iter
-         unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2
-         unit_field(nu_Vdot1,nunit) = unit_field(nu_Vdot0,nunit) !flow at iter-1
-
-         ! update unit's flow for current iter
-         unit_field(nu_Vdot0,nunit) = Q
-         
-         ! (MS) current iter elem airflow = mapped unit's current iter airflow (measured)
-         elem_field(ne_Vdot,ne) = Q ! (units_dvdt(stepcount,nunit)-units_dvdt((stepcount-1),nunit))/dt (+ve:insp OR -ve:exp)
-
-         ! flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne) ! this should be zero for mapped units
-         
-      endif ! end estimate Q_t for unmapped units OR assign Q_t for mapped units
-
+      flow_diff = unit_field(nu_Vdot0,nunit) - elem_field(ne_Vdot,ne)
+      if(abs(flow_diff).gt.zero_tol) &
+            err_est = err_est+flow_diff**2 !sum up the error for all elements
+      if(abs(unit_field(nu_Vdot0,nunit)).gt.zero_tol) &
+            flow_sum = flow_sum+unit_field(nu_Vdot0,nunit)**2
+      
+      !!! ARC: DO NOT CHANGE BELOW. THIS IS NEEDED FOR THE ITERATIVE STEP
+      !!! - SIMPLER OPTIONS JUST FORCE IT TO CONVERGE WHEN ITS NOT
+      elem_field(ne_Vdot,ne) = (unit_field(nu_Vdot0,nunit)&
+                  +unit_field(nu_Vdot1,nunit))/2.0_dp ! (MS) current iter elem airflow = ave of unit's iter-1 & current iter flows      
+      unit_field(nu_Vdot0,nunit) = elem_field(ne_Vdot,ne) ! (MS) update unit's current iter airflow for model
    enddo !nunit
 
-   ! print *,"Q",unit_field(nu_Vdot0,1) ! (MS) added
-   ! print *,"dV",unit_field(nu_Vdot0,1)*dt
-   ! stop
-
-   ! ! the estimate of error for the iterative solution 
-   ! if(abs(flow_sum*dble(num_units)).gt.zero_tol) then
-   !    err_est = err_est/(flow_sum*dble(num_units))
-   ! else
-   !    err_est = err_est/dble(num_units)
-   ! endif
-
-   ! the estimate of error for the iterative solution 
-   ! (MS) added: only for unmapped units
-   if(abs(flow_sum*dble(num_unmapped)).gt.zero_tol) then
-      err_est = err_est/(flow_sum*dble(num_unmapped))
+   ! the estimate of error for the iterative solution
+   if(abs(flow_sum*dble(num_units)).gt.zero_tol) then
+      err_est = err_est/(flow_sum*dble(num_units))
    else
-      err_est = err_est/dble(num_unmapped)
+      err_est = err_est/dble(num_units)
    endif
+
 
    call enter_exit(sub_name,2)
 
   end subroutine estimate_flow
-
-!!!#############################################################################
- 
-  subroutine get_mapped_units_dvdt
- 
-   real(dp) :: init_vol_total,dv_total,dv_unit
-   integer :: idx,count_nonzero,mapped,nunit,step,idx2
-   integer,allocatable :: nonzero_values(:)
-
-   ! loop thru each voxel
-   do idx=1,num_voxels
-      ! Collect row of mapped nunit values for eacj voxel
-      count_nonzero = count(mapped_units(idx, :) /= 0) ! Count nonzero elements
-      if (count_nonzero == 0) cycle ! skip if no mapped units
-
-      ! Allocate array for nonzero values
-      if (allocated(nonzero_values))deallocate(nonzero_values)
-      allocate(nonzero_values(count_nonzero))
-      nonzero_values(1:count_nonzero) = 0 ! initalise
-
-      ! Extract nonzero values ie nunit values of units mapped to this voxel
-      nonzero_values = pack(mapped_units(idx, :), mask=(mapped_units(idx, :) /= 0))
-
-      ! go through nunit values in the nonzero_values array
-      init_vol_total = 0.0_dp ! reset init_vol_total
-      do mapped=1,count_nonzero
-         nunit = nonzero_values(mapped)
-         ! init_vol_total = init_vol_total + init_vols(nunit) ! get init vol of air in this voxel region
-         ! actually, maybe don't need init_vols. just take from unit_field(nu_vol,nunit),
-         ! as long as this subroutine is called after define_init_volume in py script
-         init_vol_total = init_vol_total + unit_field(nu_vol,nunit) ! get init vol of air in this voxel region
-      enddo
-      ! print *,"idx",idx,"init_vol_total",init_vol_total
-
-      do step=1,num_steps
-         if (step==1)then
-            dv_total = (signals_2d(idx,step)/100)*init_vol_total ! FV% = 100%*(V_t-V_exp)/V_exp ==> dV=(V_t-V_exp)=(FV%/100%)*V_exp
-         else
-            ! Calc dV_total in this voxel region at each timestep, given the voxel region's FV%
-            dv_total = ((signals_2d(idx,step)/100)*init_vol_total)-((signals_2d(idx,step-1)/100)*init_vol_total)
-         endif
-
-         ! Divide dV_total among the units w/in this voxel
-         dv_unit = dv_total/count_nonzero
-         if(ieee_is_nan(dv_unit))then
-            print *,"dv_unit",dv_unit,"dv_total",dv_total,"count_nonzero",count_nonzero
-            stop
-         endif
-
-         ! fill dv_unit at each timestep for the voxel's mapped units
-         do mapped=1,count_nonzero
-            nunit=nonzero_values(mapped)
-            units_dvdt(step,nunit) = dv_unit
-            if(ieee_is_nan(units_dvdt(step,nunit)))then
-               print *,"Node",elem_nodes(2,units(nunit)),"dvdt",units_dvdt(step,nunit)
-               stop
-            endif
-         enddo
-      enddo
-   enddo
-   ! print *,"Idx",idx2,"FV%",signals_2d(idx2,1:num_steps)
-   ! print *, "dvdt Node num",elem_nodes(2,units(num_units)),units_dvdt(1:num_steps,num_units)
-
-  end subroutine get_mapped_units_dvdt
 
 !!!#############################################################################
 

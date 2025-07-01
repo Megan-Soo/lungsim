@@ -261,6 +261,18 @@ contains
 !
 !###################################################################################
 !
+  subroutine filter_units_in_ply_c() bind(C, name="filter_units_in_ply_c")
+
+    use geometry, only: filter_units_in_ply
+    implicit none
+
+    call filter_units_in_ply()
+
+  end subroutine filter_units_in_ply_c
+
+!
+!###################################################################################
+!
   subroutine define_node_geometry_2d_c(NODEFILE, filename_len) bind(C, name="define_node_geometry_2d_c")
 
     use iso_c_binding, only: c_ptr
@@ -323,63 +335,6 @@ contains
       call define_init_volume(FRC, filename_f)
   
       end subroutine define_init_volume_c
-!
-!##################################################################################
-!
-
-  subroutine read_unit_dvdt_c(np_read, unit_dvdt_len, unit_dvdt) bind(C, name="read_unit_dvdt_c")
-    
-    use arrays,only: dp
-    use iso_c_binding, only: c_ptr
-    use utils_c, only: strncpy
-    use geometry,only: read_unit_dvdt
-    implicit none
-    
-    integer,intent(in) :: np_read
-    integer,intent(in) :: unit_dvdt_len
-    real(dp),intent(in) :: unit_dvdt(unit_dvdt_len)
-
-    call read_unit_dvdt(np_read, unit_dvdt)
-    
-  end subroutine read_unit_dvdt_c
-
-!
-!##################################################################################
-!
-
-  subroutine read_params_c(spaces_preful_len, spaces_preful, num_centroids, num_frames) bind(C,name="read_params_c")
-    
-    use arrays, only: dp
-    use iso_c_binding, only: c_ptr
-    use geometry,only: read_params
-    implicit none
-    
-    integer,intent(in) :: spaces_preful_len,num_centroids,num_frames
-    real(dp),intent(inout) :: spaces_preful(spaces_preful_len)
-
-    call read_params(spaces_preful,num_centroids,num_frames)
-    
-  end subroutine read_params_c
-
-!
-!##################################################################################
-!
-
-  subroutine read_centroid_signals_c(idx_centroid, centroid_list_len, centroid_list, signals_list_len, signals_list)&
-                                     bind(C, name="read_centroid_signals_c")
-    
-    use arrays, only: dp
-    use iso_c_binding, only: c_ptr
-    use geometry,only: read_centroid_signals
-    implicit none
-    
-    integer,intent(in) :: idx_centroid, centroid_list_len,signals_list_len
-    real(dp),intent(inout) :: centroid_list(centroid_list_len),signals_list(signals_list_len)
-
-    call read_centroid_signals(idx_centroid, centroid_list, signals_list)
-    
-  end subroutine read_centroid_signals_c
-
 !
 !##################################################################################
 !

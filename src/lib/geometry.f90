@@ -53,9 +53,7 @@ module geometry
   public reallocate_node_elem_arrays
   public set_initial_volume
   public define_init_volume ! (MS) added subroutine
-  public read_unit_dvdt ! (MS) added subroutine
-  public read_params ! (MS) added subroutine
-  public read_centroid_signals ! (MS) added subroutine
+  public filter_units_in_ply ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -1111,6 +1109,45 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine define_data_geometry
+
+!!!#############################################################################
+
+  subroutine filter_units_in_ply
+    !*filter_units_in_ply:* collects units in current ply surface
+
+   use mesh_utilities,only: point_internal_to_surface
+
+    ! Local variables
+    integer:: kount,nunit,ne,np
+    logical:: internal
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'filter_units_in_ply'
+    call enter_exit(sub_name,1)
+
+   if(allocated(mapped_units))deallocate(mapped_units)
+   allocate(mapped_units(num_units))
+   mapped_units(:) = 0 ! initialise to zero
+
+   kount = 1
+   do nunit = 1,num_units
+      ne = units(nunit)
+      np = elem_nodes(2,ne)
+
+      internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
+      if(.not.internal)then ! 
+         mapped_units(nunit) = np
+         kount = kount + 1
+      endif
+   enddo
+
+   print *,kount,"units found in ply"
+
+    call enter_exit(sub_name,2)
+
+  end subroutine filter_units_in_ply
 
 !!!#############################################################################
 
@@ -4026,186 +4063,6 @@ contains
    call enter_exit(sub_name,2)
 
  end subroutine define_init_volume
-
-!!!#############################################################################
-
-  subroutine read_unit_dvdt(np_read, unit_dvdt)
-  
-    integer, intent(in)  :: np_read              ! node number of unit
-    real(dp),intent(in)  :: unit_dvdt(:)         ! list of the unit's volumes at each timestep, dt
-    
-    ! Local variables
-    integer :: nunit, ne, np, frame
-    character(len=60) :: sub_name
-   !  real(dp), allocatable :: dvdt_list(:) ! not sure if actually need this
-
-    sub_name = 'read_unit_dvdt'
-    call enter_exit(sub_name,1)
-    
-    do nunit=1,num_units
-       ne = units(nunit)
-       np = elem_nodes(2,ne)
-       if (np_read==np) then ! if mapped unit, store list values
-          do frame=1,size(unit_dvdt)
-             units_dvdt(frame,nunit) = unit_dvdt(frame)
-          enddo
-
-       else ! if unmapped unit, store label
-         num_unmapped = num_unmapped + 1
-        ! Reallocate the array to hold additional unmapped unit label
-         if (num_unmapped > size(unmapped_units)) then
-            if(allocated(unmapped_units))then
-               deallocate(unmapped_units)
-               allocate(unmapped_units(num_unmapped))
-            endif
-         end if
-        
-        unmapped_units(num_unmapped) = np
-       endif
-    enddo
-    
-    call enter_exit(sub_name,2)
-
-  end subroutine read_unit_dvdt
-  
-!!!#############################################################################
-
-  subroutine read_params(spaces_preful,num_centroids,num_frames)
-   
-   real(dp),intent(in) :: spaces_preful(:)
-   integer,intent(in) :: num_frames, num_centroids
-   integer :: i
-   character(len=60) :: sub_name
-
-   sub_name = 'read_params'
-   call enter_exit(sub_name,1)
-
-   num_steps = num_frames ! num_steps is accessible publicly
-   num_voxels = num_centroids ! num_voxels is accessible publicly
-   print *,"Num voxels:",num_voxels
-
-   allocate(spaces(size(spaces_preful)))
-
-   do i=1,size(spaces_preful)
-      spaces(i)=spaces_preful(i)
-   enddo
-   print *,"Spacing:",spaces
-
-   if(allocated(units_dvdt)) deallocate(units_dvdt)
-   allocate(units_dvdt(num_frames,num_units))
-   units_dvdt(1:num_steps,1:num_units) = 0.0_dp
-
-   if(allocated(mapped_units))deallocate(mapped_units)
-   allocate(mapped_units(num_centroids,1))
-   mapped_units(1:num_centroids,1) = 0 ! initialise to zero
-
-   if(allocated(mapped_voxels))deallocate(mapped_voxels)
-   allocate(mapped_voxels(3,num_centroids))
-   mapped_voxels = 0.0_dp ! initialise to zero
-
-   if(allocated(signals_2d))deallocate(signals_2d)
-   allocate(signals_2d(num_voxels,num_steps))
-   signals_2d(1:num_voxels,1:num_steps) = 0.0_dp
-
-   allocate(unmapped_units(num_units)) ! allocate unmapped_units bef calling read_centroid_signals
-   unmapped_units(1:num_units) = 0 ! initialise all to zero
-   num_unmapped = num_units ! initialise num_unmapped bef start tallying in read_centroid_signals
-   num_mapped = 0 ! initialise num_mapped bef start tallying in read_centroid_signals
-   unmapped_voxels = 0 ! initialise num unmapped voxels
-
-   call enter_exit(sub_name,2)
-
-  end subroutine read_params
-
-!!!#############################################################################
-
-  subroutine read_centroid_signals(idx_centroid,centroid,signals)
-
-    real(dp),intent(in) :: centroid(:),signals(:)
-    integer,intent(in) :: idx_centroid
-
-    ! Local variables
-    real(dp) :: x,y,z,xmin,xmax,ymin,ymax,zmin,zmax
-    integer :: nunit, ne, np, frame, mapped,max_cols, first_empty_col,i
-    real(dp),allocatable :: temp_array(:,:)
-    character(len=60) :: sub_name
-
-    sub_name = 'read_centroid_signals'
-    call enter_exit(sub_name,1)
-      
-    max_cols = size(mapped_units,2) ! keep largest size updated
-    mapped=0 ! reset to 0
-
-    ! define centroid's bbox. Spaces is stored by read_params. Need to get that working.
-    xmin = centroid(1)-(spaces(1)/2)
-    ymin = centroid(2)-(spaces(2)/2)
-    zmin = centroid(3)-(spaces(3)/2)
-    xmax = centroid(1)+(spaces(1)/2)
-    ymax = centroid(2)+(spaces(2)/2)
-    zmax = centroid(3)+(spaces(3)/2)
-
-    do nunit=1,num_units ! loop thru terminal units
-       ne = units(nunit)
-       np = elem_nodes(2,ne)
-       x = node_xyz(1,np) ! current unit coords
-       y = node_xyz(2,np)
-       z = node_xyz(3,np)
-      ! check if unit w/in bbox
-       if (x >= xmin .and. x <= xmax .and.&
-        y >= ymin .and. y <= ymax .and.&
-         z >= zmin .and. z <= zmax) then
-            mapped = mapped+1 ! update total num units mapped to this centroid
-
-            ! Store voxel coordinates for export & visualisation in mapped_voxels
-            first_empty_col = 0 ! Find the first empty row (assuming an empty row is filled with zeros)
-            do i = 1, size(mapped_voxels, 2)
-               if (all(mapped_voxels(:, i) == 0.0_dp)) then
-                  first_empty_col = i
-                  exit
-               endif
-            enddo
-
-            ! Fill the first empty col with the centroid coordinates
-            if (first_empty_col > 0) then
-               mapped_voxels(:, first_empty_col) = centroid(1:3)
-            endif
-            
-            ! Update the mapped_units array
-            if (mapped>max_cols)then
-               if(allocated(temp_array)) deallocate(temp_array)
-               allocate(temp_array(size(mapped_units,1),size(mapped_units,2)))
-               temp_array(1:num_voxels,1:max_cols) = mapped_units(1:num_voxels,1:max_cols)
-
-               deallocate(mapped_units)
-               allocate(mapped_units(num_voxels,mapped))
-               mapped_units(1:num_voxels,1:mapped) = 0 ! initialise all to zero
-               mapped_units(1:num_voxels,1:max_cols) = temp_array(1:num_voxels,1:max_cols)
-               deallocate(temp_array)
-            endif
-
-            mapped_units(idx_centroid,mapped) = nunit ! add new data
-
-       else ! if unmapped unit, store label
-         unmapped_units(nunit) = np ! update aray with new value
-       endif
-    enddo
-
-    num_unmapped = num_unmapped-mapped ! update num unmapped units
-    write(*, '(A,I6,A)', advance='no') CHAR(13) // " Num unmapped units: ", num_unmapped, "      "
-    num_mapped = num_mapped+mapped
-
-    ! store signals in 2d array
-    do frame=1,size(signals)
-      signals_2d(idx_centroid,frame) = signals(frame)
-    enddo
-
-    if(mapped==0)then
-      unmapped_voxels = unmapped_voxels + 1
-    endif
-
-    call enter_exit(sub_name,2)
-
-  end subroutine read_centroid_signals
 
 !!!#############################################################################
 
