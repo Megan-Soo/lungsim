@@ -1136,8 +1136,8 @@ contains
       ne = units(nunit)
       np = elem_nodes(2,ne)
 
-      internal = point_internal_to_surface(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
-      if(.not.internal)then ! 
+      internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
+      if(internal)then ! idky not internal collects the points inside
          mapped_units(nunit) = np
          kount = kount + 1
       endif

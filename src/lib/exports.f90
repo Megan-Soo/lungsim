@@ -1023,22 +1023,18 @@ contains
                      write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
                      VALUE_INDEX=VALUE_INDEX+1
                   enddo
-                  !label value (MS)
-                  write(10,'('' 2) label voxel, field, rectangular cartesian, #Components=1'')')
-                  write(10,'(2X,''1.  '')',advance="no")
-                  write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
                   FIRST_NODE=.FALSE.
                endif !FIRST_NODE
-   
-               nunit = mapped_units(nolist)
-               np = elem_nodes(2,units(nunit))! get Node number
-
-               !**     write Node number
-               write(10,'(1X,''Node: '',I12)') np ! for each node,
-               ! Write column in one line
-               do nj=1,3
-                  write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
-               enddo !njj2
+               
+               if(mapped_units(nolist).ne.0)then ! if stored np, write out
+                  np=mapped_units(nolist)
+                  !**     write Node number
+                  write(10,'(1X,''Node: '',I12)') np ! for each node,
+                  ! Write column in one line
+                  do nj=1,3
+                     write(10,'(2X,4(1X,F12.6))') (node_xyz(nj,np))      !Coordinates
+                  enddo !njj2
+               endif
              enddo
           endif
          close(10)

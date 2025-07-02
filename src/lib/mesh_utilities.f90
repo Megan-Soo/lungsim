@@ -39,6 +39,7 @@ module mesh_utilities
        make_plane_from_3points, &
        mesh_a_x_eq_b, &
        point_internal_to_surface, &
+       ray_to_origin_internal,& !(MS) added
        scalar_product_3, &
        scalar_triple_product, &
        scale_mesh, &
@@ -930,7 +931,60 @@ contains
 
 
 !!!#############################################################################
-  
+
+  function ray_to_origin_internal(num_vertices,triangles,point_xyz,vertex_xyz) ! (MS) added
+  !! Cast a line from point_xyz to the origin (0,0,0)
+  !! Count the number of intersections with mesh triangles
+  !! If odd: point is inside. If even: point is outside.
+
+   integer,intent(in) :: num_vertices,triangles(:,:)
+   real(dp),intent(in) :: point_xyz(3),vertex_xyz(:,:)
+  logical :: ray_to_origin_internal
+
+  integer :: i, ntri, ncrossed, num_triangles
+  real(dp) :: P1(3), P2(3), P3(3), point(3), origin(3)
+  real(dp) :: norm_v(3), u, denominator
+  real(dp) :: area, area_triangle
+  real(dp), parameter :: dist_tol = 1.0e-5_dp, user_tol = 1.0e-14_dp
+
+  origin = 0.0_dp
+  point = point_xyz
+  ncrossed = 0
+  num_triangles = count(triangles(:,:).ne.0)/3.0_dp
+
+    ncrossed = 0
+
+    do ntri = 1,num_triangles
+       P1(1:3) = vertex_xyz(1:3,triangles(1,ntri))
+       P2(1:3) = vertex_xyz(1:3,triangles(2,ntri))
+       P3(1:3) = vertex_xyz(1:3,triangles(3,ntri))
+       norm_v = unit_norm_to_three_points(P1,P2,P3) ! unit normal to triangle plane
+       ! u = (a*x1+b*y1+c*z1+d)/(a*(x1-x2)+b*(y1-y2)+c*(z1-z2))
+       denominator = norm_v(1)*(point_xyz(1)-origin(1)) + &
+            norm_v(2)*(point_xyz(2)-origin(2)) + &
+            norm_v(3)*(point_xyz(3)-origin(3))
+       ! denominator is zero for line parallel to plane
+       if(abs(denominator).gt.user_tol)then
+          ! calculate the distance of the surface point from point_xyz
+          u = (dot_product(norm_v,point_xyz)-dot_product(norm_v,P1))/denominator
+          if(u.ge.0.0_dp.and.u.le.1.0_dp)then ! POTENTIALLY crosses. Test further (angle)
+             point = point_xyz + u*(origin-point_xyz) ! projection to surface
+             area = area_between_two_vectors(P1-point,P2-point)+ &
+                  area_between_two_vectors(P1-point,P3-point)+area_between_two_vectors(P2-point,P3-point)
+             area_triangle = area_between_two_vectors(P1-P2,P1-P3)
+             if(abs(area_triangle-area).lt.dist_tol)then
+                ncrossed = ncrossed + 1
+             endif
+          endif
+       endif
+    enddo
+
+  ray_to_origin_internal = mod(ncrossed, 2) == 1 ! return true/false
+
+  end function ray_to_origin_internal
+
+!!!#############################################################################
+
   function terminal_element(ne)
     !*terminal element:* returns 'true' if a 1d element has no elements adjacent
     ! in the Xi+1 direction
