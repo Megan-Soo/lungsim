@@ -414,11 +414,11 @@ contains
     endif
     allocate(units(num_units))
     allocate(unit_field(num_nu,num_units))
-   !  if(allocated(init_vols))then
-   !    deallocate(init_vols) ! (MS) added
-   !  endif
-   !  allocate(init_vols(num_units)) ! (MS) added
-   !  init_vols(1:num_units) = 0.0_dp ! (MS) added
+    if(allocated(units_dvdt))then
+      deallocate(units_dvdt) ! (MS) added
+    endif
+    allocate(units_dvdt(500,num_units)) ! (MS) added. no. timesteps prolly won't exceed 500
+    units_dvdt(:,:) = 0.0_dp ! (MS) added
 
     unit_field=0.0_dp ! (MS) set all values in array to zero
     units=0

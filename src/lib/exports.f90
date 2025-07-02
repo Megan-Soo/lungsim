@@ -904,8 +904,10 @@ contains
           write(10,'(1X,''Node: '',I12)') np ! for each node,
           ! Write column in one line
           do i = 1, size(units_dvdt,1)
-            write(10, '(G0)', advance='no') units_dvdt(i, nolist)  ! G0 auto-adjusts width
-            write(10, '(A)', advance='no') " "       ! Add space
+            if(units_dvdt(i,nolist).ne.0.0_dp)then ! skip all zero volumes (assuming tissue units never collapse completely)
+               write(10, '(G0)', advance='no') units_dvdt(i, nolist)  ! G0 auto-adjusts width
+               write(10, '(A)', advance='no') " "       ! Add space
+            endif
           end do
           write(10, *)  ! Newline at the end
        enddo

@@ -101,6 +101,7 @@ contains
     sum_tidal = 0.0_dp ! initialise the inspired and expired volumes
     sum_expid = 0.0_dp
     last_vol = 0.0_dp
+    stepcount = 1
 
 !!! set default values for the parameters that control the breathing simulation
 !!! these should be controlled by user input (showing hard-coded for now)
@@ -227,6 +228,7 @@ contains
           WOBt = 0.0_dp ! (MS) added: reset WOBt for each new breath cycle
           comp_dyn = 0.0_dp ! (MS) added: reset comp_dyn for each new breath cycle
           work_per_litre = 0.0_dp ! (MS) added: reset work_per_litre for each new breath cycle
+          stepcount=1 ! (MS) added: reset stepcount for each new breath cycle
 
           ! (MS) reset these variables for each new breath cycle
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
@@ -257,7 +259,9 @@ contains
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
                sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
-               dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
+               dpmus,converged,iter_step,Pcw_ei,WOBr_ms,stepcount)
+          
+          stepcount = stepcount+1 ! (MS) added: update stepcount
           
 ! !!!.......update the estimate of pleural pressure
 !           call update_pleural_pressure(ppl_current) ! new pleural pressure
@@ -362,9 +366,9 @@ contains
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
        sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
-       WOB_insp,expiration_type,dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
+       WOB_insp,expiration_type,dpmus,converged,iter_step,Pcw_ei,WOBr_ms,stepcount)
 
-    integer,intent(in) :: num_itns
+    integer,intent(in) :: num_itns,stepcount
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
          err_tol,init_vol,pmus_factor_ex,pmus_factor_in,pmus_step, &
          press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
@@ -418,7 +422,7 @@ contains
        call update_unit_dpdt(dt) ! update dP/dt at the terminal units
     enddo !converged
     
-    call update_unit_volume(dt) ! Update tissue unit volumes, unit tidal vols
+    call update_unit_volume(dt,stepcount) ! Update tissue unit volumes, unit tidal vols
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
@@ -740,9 +744,10 @@ contains
 
 !!!#############################################################################
 
-  subroutine update_unit_volume(dt)
+  subroutine update_unit_volume(dt,stepcount)
 
     real(dp),intent(in) :: dt
+    integer,intent(in):: stepcount
     ! Local variables
     integer :: ne,np,nunit
     character(len=60) :: sub_name
@@ -764,6 +769,8 @@ contains
                elem_field(ne_Vdot,ne)
        endif
        
+       units_dvdt(stepcount,nunit) = unit_field(nu_vol,nunit)
+
        ! Initialize values before assessing each unit
        min_volume = 1.0E30   ! Large value to ensure the first comparison sets it correctly
        max_volume = -1.0E30  ! Small value to ensure the first comparison sets it correctly
