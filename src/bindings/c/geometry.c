@@ -14,6 +14,7 @@ void define_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
 void define_data_geometry_c(const char *DATAFILE, int *filename_len);
 void import_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
 void filter_units_in_ply_c(void);
+void filter_elems_in_ply_c(void);
 void import_ply_triangles_c(const char *ply_file, int *filename_len);
 void internal_mesh_reorder_c();
 void list_tree_statistics_c(const char *filename, int *filename_len);
@@ -87,6 +88,11 @@ void define_data_geometry(const char *DATAFILE)
 void filter_units_in_ply(void)
 {
   filter_units_in_ply_c();
+}
+
+void filter_elems_in_ply(void)
+{
+  filter_elems_in_ply_c();
 }
 
 void import_node_geometry_2d(const char *NODEFILE)

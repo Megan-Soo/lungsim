@@ -54,6 +54,7 @@ module geometry
   public set_initial_volume
   public define_init_volume ! (MS) added subroutine
   public filter_units_in_ply ! (MS) added subroutine
+  public filter_elems_in_ply ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -1137,7 +1138,7 @@ contains
       np = elem_nodes(2,ne)
 
       internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
-      if(internal)then ! idky not internal collects the points inside
+      if(internal)then
          mapped_units(nunit) = np
          kount = kount + 1
       endif
@@ -1148,6 +1149,46 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine filter_units_in_ply
+
+!!!#############################################################################
+
+  subroutine filter_elems_in_ply
+    !*filter_elems_in_ply:* collects elems in current ply surface
+
+   use mesh_utilities,only: point_internal_to_surface
+
+    ! Local variables
+    integer:: kount,ne,np
+    logical:: internal
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'filter_elems_in_ply'
+    call enter_exit(sub_name,1)
+
+   if(allocated(mapped_elems))deallocate(mapped_elems)
+   allocate(mapped_elems(num_elems))
+   mapped_elems(:) = 0 ! initialise to zero
+
+   kount = 1
+   do ne = 1,num_elems
+      if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem
+         np = elem_nodes(2,ne) ! get Node number
+
+         internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
+         if(internal)then
+            mapped_elems(ne) = ne
+            kount = kount + 1
+         endif
+      endif
+   enddo
+
+   print *,kount,"capillary elems found in ply"
+
+    call enter_exit(sub_name,2)
+
+  end subroutine filter_elems_in_ply
 
 !!!#############################################################################
 

@@ -44,6 +44,7 @@ module arrays
   integer,allocatable :: units(:)
   integer,allocatable :: unmapped_units(:) ! (MS) added to store units tt aren't mapped to PREFUL
   integer,allocatable :: mapped_units(:) ! (MS) added
+  integer,allocatable :: mapped_elems(:) ! (MS) added
   real(dp),allocatable :: signals_2d(:,:) ! (MS) added
   real(dp),allocatable :: spaces(:) ! (MS) added
   real(dp),allocatable :: mapped_voxels(:,:) ! (MS) added to store coordinates of mapped voxels for export
@@ -160,7 +161,7 @@ module arrays
        mesh_from_depvar, depvar_at_node, depvar_at_elem, SparseCol, SparseRow, triangle, &
        update_resistance_entries, vertex_xyz, &
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
-       units_dvdt,unmapped_units,mapped_units,spaces,signals_2d,& ! (MS) added
+       units_dvdt,unmapped_units,mapped_units,mapped_elems,spaces,signals_2d,& ! (MS) added
        num_unmapped,num_mapped,num_steps,num_voxels,mapped_voxels,unmapped_voxels,& ! (MS) added
        unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol ! (MS) added
 

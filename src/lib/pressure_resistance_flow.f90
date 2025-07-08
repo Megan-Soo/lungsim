@@ -271,6 +271,25 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
             no=no+1
             prq_solution(depvar,2)=prq_solution(depvar,1) !temp storage of previous solution
             prq_solution(depvar,1)=solver_solution(no) !new pressure & flow solutions
+            
+            !!! (MS) added: add lines here to search for capillary elem
+            !   EITHER      edit pressures at start & end of cap elem so tt pressure diff is low/zero,
+            !     OR        edit flow in elem upstream of cap elem to zero
+            if(mesh_type.eq.'full_plus_ladder')then
+              do ne=1,num_elems
+                  if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem
+                    if(elems(ne).eq.mapped_elems(ne))then !(MS): if the capillary elem is mapped to preful defect region
+                      ne0=elem_cnct(-1,1,ne)!upstream element number
+                      ne1=elem_cnct(1,1,ne)
+                      ! prq_solution(depvar_at_node(elem_nodes(2,ne0),0,1),1)=0.0_dp !pressure at start node of capillary element
+                      ! prq_solution(depvar_at_node(elem_nodes(1,ne1),0,1),1)=0.0_dp !pressure at end node of capillary element
+                      !! end up with zero pressure difference --> zero flow
+                      prq_solution(depvar_at_elem(1,1,ne0),1) = 0.0_dp ! set flow upstream of cap elem to zero
+                    endif
+                  endif
+              enddo
+            endif
+
             if(DABS(prq_solution(depvar,1)).GT.0.d-6)THEN
                ERR=ERR+(prq_solution(depvar,2)-prq_solution(depvar,1))**2.d0/prq_solution(depvar,1)**2
             endif

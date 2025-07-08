@@ -273,6 +273,18 @@ contains
 !
 !###################################################################################
 !
+  subroutine filter_elems_in_ply_c() bind(C, name="filter_elems_in_ply_c")
+
+    use geometry, only: filter_elems_in_ply
+    implicit none
+
+    call filter_elems_in_ply()
+
+  end subroutine filter_elems_in_ply_c
+
+!
+!###################################################################################
+!
   subroutine define_node_geometry_2d_c(NODEFILE, filename_len) bind(C, name="define_node_geometry_2d_c")
 
     use iso_c_binding, only: c_ptr
