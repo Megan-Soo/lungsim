@@ -55,6 +55,7 @@ module geometry
   public define_init_volume ! (MS) added subroutine
   public filter_units_in_ply ! (MS) added subroutine
   public filter_elems_in_ply ! (MS) added subroutine
+  public set_rad_upstream_filtered_elem ! (MS) added subroutine
   public triangles_from_surface
   public volume_of_mesh
   public write_geo_file
@@ -1152,13 +1153,15 @@ contains
 
 !!!#############################################################################
 
-  subroutine filter_elems_in_ply
+  subroutine filter_elems_in_ply(terminal_only)
     !*filter_elems_in_ply:* collects elems in current ply surface
 
    use mesh_utilities,only: point_internal_to_surface
 
+    logical, intent(in) :: terminal_only
+
     ! Local variables
-    integer:: kount,ne,np
+    integer:: kount,ne,np,ne0
     logical:: internal
     character(len=60) :: sub_name
 
@@ -1172,8 +1175,20 @@ contains
    mapped_elems(:) = 0 ! initialise to zero
 
    kount = 1
-   do ne = 1,num_elems
-      if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem
+   if(terminal_only)then
+      do ne = 1,num_elems
+         if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem
+            np = elem_nodes(2,ne) ! get Node number
+
+            internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
+            if(internal)then
+               mapped_elems(ne) = ne
+               kount = kount + 1
+            endif
+         endif
+      enddo
+   else
+      do ne = 1,num_elems ! all elems w/in ply, not just cap elems
          np = elem_nodes(2,ne) ! get Node number
 
          internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
@@ -1181,14 +1196,58 @@ contains
             mapped_elems(ne) = ne
             kount = kount + 1
          endif
-      endif
-   enddo
+      enddo
+   endif
 
-   print *,kount,"capillary elems found in ply"
+   if (terminal_only) then
+      write(*,'(I6," terminal capillary elems found in ply")') kount
+   else
+      write(*,'(I6," elems found in ply")') kount
+   endif
 
     call enter_exit(sub_name,2)
 
   end subroutine filter_elems_in_ply
+
+!!!#############################################################################
+
+  subroutine set_rad_upstream_filtered_elem(new_rad)
+    !*scale_rad_filtered_elems:* prerequisite filter_elems_in_ply
+    !                             multiplies radii of filtered elems by scale factor
+
+    real(dp),intent(in) :: new_rad
+    ! Local variables
+    real(dp):: radius
+    integer:: ne,ne0
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'set_rad_upstream_filtered_elem'
+    call enter_exit(sub_name,1)
+
+   do ne = 1,num_elems
+      if(ne.eq.mapped_elems(ne))then! (MS): if it's a filtered elem
+          ne0 = elem_cnct(-1,1,ne) ! get upstream element
+         !  radius = elem_field(ne_radius,ne0) ! get radius
+         !  radius = radius*scale_factor ! scale radius
+          
+          radius = new_rad
+          elem_field(ne_radius,ne0) = radius ! ave radius across whole elem
+          elem_field(ne_radius_in,ne0) = radius ! strained radius into elem
+          elem_field(ne_radius_in0,ne0) = radius ! unstrained radius into elem
+          elem_field(ne_radius_out,ne0) = radius ! strained radius out of elem
+          elem_field(ne_radius_out0,ne0) = radius ! unstrained radius out of elem
+          
+          if(ne_vol.gt.0)then
+            elem_field(ne_vol,ne0) = pi*radius**2*elem_field(ne_length,ne0) ! update elem vol
+          endif
+      endif
+   enddo
+
+    call enter_exit(sub_name,2)
+
+  end subroutine set_rad_upstream_filtered_elem
 
 !!!#############################################################################
 

@@ -273,14 +273,28 @@ contains
 !
 !###################################################################################
 !
-  subroutine filter_elems_in_ply_c() bind(C, name="filter_elems_in_ply_c")
+  subroutine filter_elems_in_ply_c(terminal_only) bind(C, name="filter_elems_in_ply_c")
 
     use geometry, only: filter_elems_in_ply
     implicit none
+    logical,intent(in) :: terminal_only
 
-    call filter_elems_in_ply()
+    call filter_elems_in_ply(terminal_only)
 
   end subroutine filter_elems_in_ply_c
+
+!
+!###################################################################################
+!
+  subroutine set_rad_upstream_filtered_elem_c(new_rad) bind(C, name="set_rad_upstream_filtered_elem_c")
+
+    use geometry, only: set_rad_upstream_filtered_elem
+    implicit none
+    real(dp),intent(in) :: new_rad
+
+    call set_rad_upstream_filtered_elem(new_rad)
+
+  end subroutine set_rad_upstream_filtered_elem_c
 
 !
 !###################################################################################

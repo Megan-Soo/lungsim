@@ -271,28 +271,10 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
             no=no+1
             prq_solution(depvar,2)=prq_solution(depvar,1) !temp storage of previous solution
             prq_solution(depvar,1)=solver_solution(no) !new pressure & flow solutions
-            
-            !!! (MS) added: add lines here to search for capillary elem
-            !   EITHER      edit pressures at start & end of cap elem so tt pressure diff is low/zero,
-            !     OR        edit flow in elem upstream of cap elem to zero
-            if(mesh_type.eq.'full_plus_ladder')then
-              do ne=1,num_elems
-                  if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem
-                    if(elems(ne).eq.mapped_elems(ne))then !(MS): if the capillary elem is mapped to preful defect region
-                      ne0=elem_cnct(-1,1,ne)!upstream element number
-                      ne1=elem_cnct(1,1,ne)
-                      ! prq_solution(depvar_at_node(elem_nodes(2,ne0),0,1),1)=0.0_dp !pressure at start node of capillary element
-                      ! prq_solution(depvar_at_node(elem_nodes(1,ne1),0,1),1)=0.0_dp !pressure at end node of capillary element
-                      !! end up with zero pressure difference --> zero flow
-                      prq_solution(depvar_at_elem(1,1,ne0),1) = 0.0_dp ! set flow upstream of cap elem to zero
-                    endif
-                  endif
-              enddo
-            endif
 
             if(DABS(prq_solution(depvar,1)).GT.0.d-6)THEN
                ERR=ERR+(prq_solution(depvar,2)-prq_solution(depvar,1))**2.d0/prq_solution(depvar,1)**2
-            endif
+            endif ! (MS) when diff btwn previous solution and current solution < err_tol, model has converged.
          endif
       enddo !no2
 !rigid vessels no need to update - tag as converged and exit
@@ -300,11 +282,15 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
         ERR=0.0_dp
         CONVERGED=.TRUE.
       else
+
+! (MS) this part affects vessel geometry
 !Update vessel radii based on predicted pressures and then update resistance through tree
         call calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
            mesh_dof,vessel_type,elasticity_parameters,mechanics_parameters,remodeling_grade)
         call calculate_resistance(viscosity,KOUNT)
+        ! (MS) at Kount==1, elem_field(ne_radius_in0) & elem_field(ne_radius_out0) get replaced by ne_radius_in & ne_radius_out
 
+! (MS) this part affects capillary terminal flow, pressure, resistance
 !Put the ladder stuff here --> See solve11.f
          if(mesh_type.eq.'full_plus_ladder')then
            do ne=1,num_elems
@@ -315,16 +301,17 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
                 P2=prq_solution(depvar_at_node(elem_nodes(1,ne1),0,1),1)!pressure at end node of capillary element
                 Q01=prq_solution(depvar_at_elem(1,1,ne0),1) !flow in element upstream of capillary element !mm^3/s
                 Rin=elem_field(ne_radius_out0,ne0)!radius of upstream element
-                Rout=elem_field(ne_radius_out0,ne1) !radius of downstream element
+                Rout=elem_field(ne_radius_out0,ne1) !radius of downstream element ! (MS) why the unstrained radius????
+                
                 x_cap=node_xyz(1,elem_nodes(1,ne))
                 y_cap=node_xyz(2,elem_nodes(1,ne))
                 z_cap=node_xyz(3,elem_nodes(1,ne))
-                call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl)
+                call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): linearly distributed based on node's height
                 Lin=elem_field(ne_length,ne0)
                 Lout=elem_field(ne_length,ne1)
                  call cap_flow_ladder(ne,LPM_R,Lin,Lout,P1,P2,&
                         Ppl,Q01,Rin,Rout,x_cap,y_cap,z_cap,&
-                        .FALSE.)
+                        .FALSE.) ! (MS) calculates resistance across capillary ladder
                  elem_field(ne_resist,ne)=LPM_R
               endif
            enddo
@@ -362,6 +349,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
           Q01=prq_solution(depvar_at_elem(1,1,ne0),1) !flow in element upstream of capillary element !mm^3/s
           Rin=elem_field(ne_radius_out0,ne0)!radius of upstream element
           Rout=elem_field(ne_radius_out0,ne1) !radius of downstream element
+          
           x_cap=node_xyz(1,elem_nodes(1,ne))
           y_cap=node_xyz(2,elem_nodes(1,ne))
           z_cap=node_xyz(3,elem_nodes(1,ne))
@@ -654,11 +642,11 @@ subroutine initialise_solution(pressure_in,pressure_out,cardiac_output,mesh_dof,
        do nn=1,2 !Loop over number of nodes in each element: always=2 in 1D element
          np=elem_nodes(nn,ne) !Node number
          n_depvar=depvar_at_node(np,0,1) !--> This will be a pressure because it's the depvar at a node
-         if(.NOT.FIX(n_depvar))then
+         if(.NOT.FIX(n_depvar))then ! (MS) if not inlet
            prq_solution(n_depvar,1)=(pressure_in+pressure_out)/2.0
          endif
          n_depvar=depvar_at_elem(0,1,ne) !--> This will be a flow because it's the depvar at the element
-         if(.NOT.FIX(n_depvar))then
+         if(.NOT.FIX(n_depvar))then ! (MS) if not inlet 
            prq_solution(n_depvar,1)=cardiac_output/(2**(elem_ordrs(1,ne)-1)) !Here you can use the generation number to split flow
          endif
        enddo
@@ -1010,6 +998,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
             elem_field(ne_radius_out,ne)=R0*((elasticity_parameters(2)*elasticity_parameters(1))+1.d0)
           endif
         endif
+
       elseif(vessel_type.eq.'elastic_hooke')then
         h=elasticity_parameters(2)*R0
         if(nn.eq.1) elem_field(ne_radius_in,ne)=R0+3.0_dp*R0**2*Ptm/(4.0_dp*elasticity_parameters(1)*h)
@@ -1076,7 +1065,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         if(nn.eq.2) R0=elem_field(ne_radius_out0,ne)
         if(elem_field(ne_group,ne).eq.0.0_dp) then !only applying on arteries
           if(nn.eq.1) then
-            if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then
+            if(R0.lt.prune_rad.and.elem_ordrs(no_sord,ne).eq.1) then ! (MS) prune Strahler order 1 branches (terminal arterioles)
               if(counter1/100.le.prune_fraction) then ! pruning the right percentage based on the fraction defined
                 cc1 = cc1+1.0_dp
                 R0=0.005_dp ! Setting the radius to a small value

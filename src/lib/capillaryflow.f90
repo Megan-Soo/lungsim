@@ -109,7 +109,7 @@ contains
 !!  ---CALL THE FUNCTIONS THAT CALCULATE THE FLOW ACROSS THE LADDER FOR A GIVEN PRESSURE DROP--
       call evaluate_ladder(ne,NonZeros,MatrixSize,submatrixsize,ngen,&
       area,Lin,Lout,Pin,Pout,Ppl,R_in,R_out,Q01_mthrees,x,y,z,&
-      OUTPUT_PERFUSION)
+      OUTPUT_PERFUSION) ! (MS) doesn't seem to change Pin & Pout.
 
 !     ---FINAL FUNCTION OUTPUT (Resistance across ladder)---
 !...  This takes difference between the inlet and outlet pressures
@@ -144,7 +144,7 @@ contains
     real(dp) ::  Q_c,Qtot,Qgen
     real(dp),allocatable :: Q_sheet(:)
     real(dp),allocatable :: RHS(:)
-    real(dp) :: RBC_TT,Rtot,SHEET_RES
+    real(dp) :: RBC_TT,Rtot,SHEET_RES ! (MS) Rtot seems unused
     real(dp),allocatable :: Solution(:)
     real(dp),allocatable :: SolutionLast(:)
     real(dp),allocatable :: SparseVal(:)
@@ -265,7 +265,7 @@ contains
       ENDDO
       Rtot=(Pin-Pout)/Q01_mthrees
 !
-       IF(OUTPUT_PERFUSION)THEN
+       IF(OUTPUT_PERFUSION)THEN ! (MS) set to False by default, ignore
 !###  GET SOLUTIONS TO WRITE TO FILE
         TOTAL_CAP_VOL=0.d0
         TOTAL_SHEET_SA=0.d0
@@ -509,7 +509,7 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
     real(dp) :: Q,P_exta,P_extv,radupdate,R_art1,R_art2,&
         R_ven1,R_ven2,SHEET_RES,Q_c,R_sheet(ngen),Q_gen,Hart,&
         Hven,RBC_TT,Pin_sheet,Pout_sheet,area_new,test,&
-        recruited,volume_vessels
+        recruited,volume_vessels ! (MS) volume_vessels unused
 
     character(len=60) :: sub_name
 
@@ -522,13 +522,14 @@ subroutine populate_matrix_ladder(ne,NonZeros,submatrixsize,ngen,area,alpha_c,&
 
 !...  Previous iterations estimate for total flow through the system
       !ALYS: at the moment we aren't iterating so use Q01
-       Q=Q01_mthrees
+       Q=Q01_mthrees ! (MS) what is Q even for
        radupdate=0.d0
       DO gen=1,cap_param%num_symm_gen-1
 !...    FIRST HALF OF ARTERIOLE
 !...    Update radius of arteriole based on inlet pressure
          IF(rad_a(gen).LT.100.d-6) THEN
            P_exta=cap_param%Palv ! From Yen Alveolar pressure dominates vessels <200um diam
+           ! (MS) cap_param%Palv accesses value of Palv in capillary_bf_parameters in arrays.f90
          ELSE
            P_exta=-Ppl
          ENDIF
