@@ -208,6 +208,27 @@ contains
 
 !!!########################################################################
 
+  subroutine export_dvdt_bin_c(BINFILE, filename_len, name, name_len) bind(C, name="export_dvdt_bin_c")
+
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use exports, only: export_dvdt_bin
+    use other_consts, only: MAX_STRING_LEN, MAX_FILENAME_LEN
+    implicit none
+    integer,intent(in) :: filename_len, name_len
+    type(c_ptr), value, intent(in) :: BINFILE, name
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    character(len=MAX_STRING_LEN) :: name_f
+
+    call strncpy(filename_f, BINFILE, filename_len)
+    call strncpy(name_f, name, name_len)
+
+    call export_dvdt_bin(filename_f, name_f)
+
+  end subroutine export_dvdt_bin_c
+
+!!!########################################################################
+
   subroutine export_mapped_voxels_c(EXNODEFILE, filename_len, name, name_len) bind(C, name="export_mapped_voxels_c")
 
     use iso_c_binding, only: c_ptr

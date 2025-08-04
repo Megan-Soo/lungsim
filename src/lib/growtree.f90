@@ -246,6 +246,55 @@ contains
 
   end subroutine calculate_seed_cofm
 
+  !###############################################################
+  !
+  !*calculate_seed_cofm:* calculates centre of mass of a list of seed
+  ! points by averaging their coordinates and returns result in 'cofm'
+  !
+  subroutine calculate_seed_cofm_weighted(map_seed_to_elem,map_weight_to_elem,nen,COFM)
+
+    integer :: map_weight_to_elem(*) ! (MS) added
+    integer :: map_seed_to_elem(*),nen
+    real(dp) :: COFM(3)
+
+    !Local variables
+    integer :: DAT,nd,nsp
+    integer :: nw ! (MS) added
+
+    character(len=60) :: sub_name
+
+    sub_name = 'calculate_seed_cofm_weighted'
+    call enter_exit(sub_name,1)
+
+    DAT = 0
+    cofm = 0.0_dp
+
+    do nd=1,num_data
+       nsp=map_seed_to_elem(nd) !the space # for the nd-th data point
+       if(nsp.eq.nen)then
+          DAT=DAT+1
+          COFM(1:3)=COFM(1:3)+data_xyz(1:3,nd)
+       endif
+    enddo !nd
+
+    do nw=1,num_weights
+       nsp=map_weight_to_elem(nw) !the space # for the nd-th data point
+       if(nsp.eq.nen)then
+          DAT=DAT+1 ! Keep tallying total num of points to divide by
+          COFM(1:3)=COFM(1:3)+weights(1:3,nw)
+       endif
+    enddo !nd
+
+    if(DAT.ne.0) COFM(1:3) = COFM(1:3)/real(DAT,kind=dp) !centre of mass
+
+    if(diagnostics_on) then
+       write(*,'('' COFM for element'',i7,'':'',3(f12.5),'' for'',i6,'' seeds'')') &
+            nen,cofm,dat
+    endif
+
+    call enter_exit(sub_name,2)
+
+  end subroutine calculate_seed_cofm_weighted
 
   !###############################################################
   !
@@ -759,7 +808,90 @@ contains
 
 
 !!!#############################################################################
+  !
+  !*group_weights_with_branch:* groups a set of WEIGHT points with the
+  ! closest candidate parent branches. reassigns data (seed) points
+  ! to the closest ending of branches in the current generation.
+  ! NO distance_limit, to_export, num_terminal
+  !
+  subroutine group_weights_with_branch(map_array,num_next_parents,num_weights_from_elem,local_parent)
 
+    use indices
+    use mesh_utilities,only: distance_between_points,inlist
+
+    integer :: num_next_parents,local_parent(:),map_array(:),num_weights_from_elem(*)
+
+    !Local variables
+    integer :: n,nw,nw_min,ne,ne_min,noelem,np,np_temp
+    integer :: size_map
+    integer,allocatable :: map_array_copy(:),my_closest(:)
+    real(dp) :: dist,min_dist
+
+    character(len=60) :: sub_name
+
+    sub_name = 'group_weights_with_branch'
+    call enter_exit(sub_name,1)
+
+    size_map = size(map_array)
+    allocate(my_closest(size_map))
+    allocate(map_array_copy(size_map))
+    map_array_copy(1:size_map) = map_array(1:size_map)
+
+    do n=1,num_next_parents
+       ne_min = local_parent(n)
+       np_temp = elem_nodes(2,ne_min)
+       MIN_DIST=1.0e+10_dp
+       do nw=1,num_weights
+          if(map_array(nw).eq.ne_min)then ! was associated with this element
+             dist = distance_between_points(weights(1,nw),node_xyz(1,np_temp))
+             if(dist.lt.min_dist)then
+                nw_min = nw
+                min_dist = dist
+             endif !DIST
+          endif
+       enddo
+       my_closest(N) = nw_min
+       map_array(nw_min) = ne_min
+    enddo
+
+    do nw = 1,num_weights            ! for all seed/data points
+       if(map_array(nw).ne.0)then ! the data point is still in use
+          if(.not.inlist(nw,my_closest))then
+             MIN_DIST=1.0e+10_dp     ! initialise the minimum (closest) distance
+             do noelem = 1,num_next_parents ! for each parent in the next branch generation
+                ne = local_parent(noelem)
+                np = elem_nodes(2,ne)
+                dist = distance_between_points(weights(1,nw),node_xyz(1,np))
+                if(dist.lt.(min_dist+zero_tol))then
+!                if(DIST.lt.MIN_DIST)then
+                   ne_min = ne
+                   MIN_DIST=DIST
+                endif
+             enddo
+
+             map_array(nw)=ne_min ! store new parent elem
+
+          endif
+       endif
+    enddo
+
+    num_weights_from_elem(1:num_elems) = 0 !initialise the count of nw
+    do nw=1,num_weights
+       if(map_array(nw).ne.0)then
+          ne_min = map_array(nw)
+          num_weights_from_elem(ne_min) = num_weights_from_elem(ne_min)+1
+       endif !map_array
+    enddo !nw
+
+    deallocate(my_closest)
+    deallocate(map_array_copy)
+
+    call enter_exit(sub_name,2)
+
+  end subroutine group_weights_with_branch
+
+
+!!!#############################################################################
   !
   !*group_seeds_with_branch_initial:* groups a set of seed points with the
   ! closest candidate parent branches. reassigns data (seed) points
@@ -964,16 +1096,20 @@ contains
     integer,allocatable :: map_seed_to_elem(:)      ! records current elem associated w. data points
     integer,allocatable :: map_seed_to_space(:)     ! records initial elem associated w. data points (the 'space')
     integer,allocatable :: num_seeds_from_elem(:)   ! records # of seeds currently grouped with an elem
+    integer,allocatable :: map_weight_to_space(:)     ! (MS) added
+    integer,allocatable :: map_weight_to_elem(:)     ! (MS) added
+    integer,allocatable :: num_weights_from_elem(:)   ! (MS) added: records # of weights currently grouped with an elem (for group_weights_with_branch)
 
     integer :: i,j,kount,M,N,nd,nd_min,ne,ne_global,ne_grnd_parent,ne_parent,ne_start,ne_stem,&
          noelem_parent,np,np_global,np_start,np_prnt_start,np_grnd_start,num_seeds_in_space,num_next_parents, &
          num_parents,num_terminal
+    integer :: nw, num_weights_in_space ! (MS) added
 
     real(dp),dimension(3) :: COFM,candidate_xyz
     real(dp) :: distance_limit = 300.0_dp,length_parent
 
     logical :: make_branch,enough_points(2),internal, &
-         limit_branching_angle = .false., &  ! option to restrict branch angle
+         limit_branching_angle = .true., &  ! option to restrict branch angle
          limit_branching_plane = .false.    ! option to restrict angle between branching planes
 
     character(len=60) :: sub_name
@@ -987,6 +1123,9 @@ contains
     allocate(num_seeds_from_elem(num_elems_new))
     allocate(map_seed_to_elem(num_data))
     allocate(map_seed_to_space(num_data))
+    allocate(num_weights_from_elem(num_elems_new)) ! (MS) added
+    allocate(map_weight_to_elem(num_weights)) ! (MS) added
+    allocate(map_weight_to_space(num_weights)) ! (MS) added
 
     ne_global = maxval(elems) ! maximum current global element number
     np_global = maxval(nodes) ! maximum current global node number
@@ -998,6 +1137,7 @@ contains
 
     NUM_SEEDS_FROM_ELEM = 0
     num_next_parents = num_parents
+    NUM_WEIGHTS_FROM_ELEM = 0 ! (MS) added: initialise
 
 !!! Calculate the initial grouping of data points with terminal elements
 !!! this defines the 'space' with which each seed is associated
@@ -1006,6 +1146,7 @@ contains
 !!! the closest parent end-point to each seed point. This has been replaced by splitting
 !!! seed points using the orthogonal to branching planes of the upper tree.
     map_seed_to_space(1:num_data) = parent_list(1) !#! this is done for the new-style growing (full grow per terminal)
+    map_weight_to_space(1:num_weights) = parent_list(1) ! (MS) added: map weight point cloud to parents too
     if(num_parents.gt.1)then
        if(grouping(1:5).eq.'close')then
           map_seed_to_elem = parent_list(1)
@@ -1013,6 +1154,7 @@ contains
                num_next_parents,num_seeds_from_elem,num_terminal,local_parent)
        else if(grouping(1:5).eq.'split')then
           call split_seed_points_initial(map_seed_to_space,parent_ne)
+          call split_weight_points_initial(map_weight_to_space,parent_ne) ! (MS) added: split weight point cloud concurrently
        endif
     endif !parent_list.gt.1
 
@@ -1039,6 +1181,17 @@ contains
           endif
        enddo
 
+       ! (MS) added: start
+       map_weight_to_elem = 0 ! initialise the weight mapping array
+       num_weights_in_space = 0 ! initialise num of weights in the 'space'
+       do nw = 1,num_weights ! for all of the seed points (stored in data_xyz array)
+          if(map_weight_to_space(nw).eq.ne_stem)then ! for the points in this space
+             map_weight_to_elem(nw) = ne_stem ! record the current element associated with seed point nd
+             num_weights_in_space = num_weights_in_space+1 ! count number of seed points in the space
+          endif
+       enddo
+       ! (MS) added: end
+
        num_next_parents = 1 ! initialise the number of current local parent branches
        local_parent(1) = ne_stem ! first local parent branch is the 'stem' branch
        num_terminal = 0 ! initialise the number of definite terminal branches
@@ -1051,7 +1204,8 @@ contains
           do M = 1,num_parents ! for each of the current local parent branches
              ne_parent = local_parent(M) !parent element #
              ! Calculate centre of mass of current seed point set
-             call calculate_seed_cofm(map_seed_to_elem,ne_parent,COFM)
+            !  call calculate_seed_cofm(map_seed_to_elem,ne_parent,COFM) ! (MS) edited: commented out
+             call calculate_seed_cofm_weighted(map_seed_to_elem,map_weight_to_elem,ne_parent,COFM) ! (MS) added
 
              ne_grnd_parent = elem_cnct(-1,1,ne_parent) !grandparent global element #
              np_start = elem_nodes(2,ne_parent) !parent global end node #
@@ -1064,7 +1218,8 @@ contains
 !!! parent branch and the centre of mass. Seed points get associated with NEW elements (ne+1,ne+2)
              call split_seed_points(map_seed_to_elem,ne_parent,ne,np_start,&
                   np_prnt_start,np_grnd_start,COFM,enough_points)
-
+             call split_weight_points(map_weight_to_elem,ne_parent,ne,np_start,& ! (MS) added: separate subroutine w/o 'enough_points' var
+                  np_prnt_start,np_grnd_start,COFM) ! (MS) added
 !!! check whether enough seed points remaining in BOTH seed groups for branching to be done
 !!! (note: this could be improved to continue branching in one set of seeds)
              if(enough_points(1).or.enough_points(2))then
@@ -1074,7 +1229,8 @@ contains
                    call create_new_node(ne,ne_global,ne_parent,np,np_global,np_start,.TRUE.)
                    ! find the centre of mass of seed points
                    if(diagnostics_on) write(*,'('' New node'',i7)') np
-                   call calculate_seed_cofm(map_seed_to_elem,ne,COFM)
+                  !  call calculate_seed_cofm(map_seed_to_elem,ne,COFM) ! (MS) edited: commented out
+                   call calculate_seed_cofm_weighted(map_seed_to_elem,map_weight_to_elem,ne,COFM) ! (MS) added
                    ! Generate a branch directed towards the centre of mass. Returns location
                    ! of end node in candidate_xyz (adjusted below based on length and shape criteria)
                    call branch_to_cofm(map_seed_to_elem,map_seed_to_space,ne,np_start,&
@@ -1223,6 +1379,8 @@ contains
              ! Regroup the seed points with the closest current parent
              call group_seeds_with_branch(map_seed_to_elem,num_next_parents,num_seeds_from_elem,&
                   num_terminal,local_parent,DISTANCE_LIMIT,to_export)
+             ! Regroup the weight points with the closest current parent ! (MS) added
+             call group_weights_with_branch(map_seed_to_elem,num_next_parents,num_weights_from_elem,local_parent) ! (MS) added
           endif
        enddo ! while still parent branches
 
@@ -1559,7 +1717,75 @@ contains
 
 
   !###############################################################
+ !
+  !*split_weight_points:* divides a set of WEIGHT points into two subsets
+  ! using the plane that contains the parent branch and the seed point
+  ! centre of mass. Decides which side of a plane a WEIGHT point is on by calculating
+  ! the distance between two parallel planes: one which is defined by
+  ! the parent and grandparent branch, and the other which contains a
+  ! seed point.
+  ! REMOVED enough_points bc we don't mind if weights fall off when branches
+  ! start growing away from them.
   !
+  subroutine split_weight_points(map_weight_to_elem,ne1,ne,np1,np2,np3,COFM)
+
+    use mesh_utilities,only: check_colinear_points,make_plane_from_3points,scalar_product_3
+
+    integer :: map_weight_to_elem(*),ne,ne1,np1,np2,np3
+    real(dp) :: COFM(3)
+
+    !Local variables
+    integer :: WET1,WET2,nw,NW1_1ST,NW2_1ST,nsp
+    real(dp) :: DIST,NORML(4),P(3),Q(3),R(3)
+    logical :: COLINEAR
+
+    character(len=60) :: sub_name
+
+    sub_name = 'split_weight_points'
+    call enter_exit(sub_name,1)
+    
+    R = COFM ! split based on cofm and branch
+    P(1:3) = node_xyz(1:3,np2) ! point at start of parent branch
+    Q(1:3) = node_xyz(1:3,np1) ! point at end of parent branch
+
+!!! check whether the centre of mass and the parent start & end branches
+!!! are co-linear. if so, will need to use 'aunt' branch for split
+    colinear = check_colinear_points(P,Q,R)
+    if(colinear) R(1:3) = node_xyz(1:3,np3) !split based on parent and aunt
+    call make_plane_from_3points(NORML,1,P,Q,R) !calculate plane
+
+    WET1=0
+    WET2=0
+    NW1_1ST=0
+    NW2_1ST=0
+    do nw=1,num_weights
+       nsp=map_weight_to_elem(nw) !space # that random point belongs to
+       if(nsp.eq.ne1)then !random point belongs to this element space
+          dist = -scalar_product_3(norml,weights(1,nw)) - norml(4) ! distance between two planes
+          if(dist.ge.zero_tol)then
+             if(wet1.eq.0) nw1_1st = nw
+             WET1=WET1+1
+             map_weight_to_elem(nw)=ne+1
+          else
+             if(WET2.eq.0) NW2_1ST=nw
+             WET2=WET2+1
+             map_weight_to_elem(nw)=ne+2
+          endif
+       endif
+    enddo !nw
+
+    if(diagnostics_on)then
+       write(*,'( ''Parent '',i6,'' with '',i6,'' weights for element'',i7,'' and'',i6,'' for element'',i7)') &
+            ne1,wet1,ne+1,wet2,ne+2
+    endif
+
+    call enter_exit(sub_name,2)
+
+  end subroutine split_weight_points
+
+
+  !###############################################################
+   !
   !*split_seed_points_initial:* divides a set of seed points into N subsets
   ! to match N terminal branches, using the plane that is orthogonal to the branching plane
   ! of child branches, and that passes mid-way between child branches.
@@ -1668,6 +1894,109 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine split_seed_points_initial
+
+
+  !###############################################################
+   !
+  !*split_weight_points_initial:* divides a set of WEIGHT points into N subsets
+  ! to match N terminal branches, using the plane that is orthogonal to the branching plane
+  ! of child branches, and that passes mid-way between child branches.
+  ! REMOVE WARNINGS bc it doesn't matter if a subset doesn't have weights
+  !
+  subroutine split_weight_points_initial(map_array,ne_stem)
+
+    use mesh_utilities,only: make_plane_from_3points,scalar_product_3
+
+    integer :: map_array(:),ne_stem
+
+    !Local variables
+    integer :: local_parent(20),local_parent_temp(20),M,nd,ne_parent, &
+         ne1,ne2,np0,np1,np2,nsp,num_points,num_next_parents,num_parents
+    real(dp) :: DIST,dist_p1,dist_p2,NORML(4),P(3),Q(3),R(3)
+
+    character(len=60) :: sub_name
+
+    sub_name = 'split_weight_points_initial'
+    call enter_exit(sub_name,1)
+
+    ne_parent = ne_stem
+    do while(elem_cnct(1,0,ne_parent).eq.1)
+       ne_parent = elem_cnct(1,1,ne_parent) ! get the next element in a refined branch
+    enddo
+    map_array(:) = ne_parent ! initialise that all seed points map to the stem branch
+
+    num_next_parents = 1
+    local_parent(1) = ne_parent
+
+    do while(num_next_parents.ne.0) !while still some parent branches with seed points
+       num_parents = num_next_parents ! update the number of current local parent branches
+       num_next_parents = 0 ! reset the number of local parent branches in next generation
+       do M = 1,num_parents ! for each of the current local parent branches
+          ne_parent = local_parent(M) !parent element #
+          do while(elem_cnct(1,0,ne_parent).eq.1)
+             ne_parent = elem_cnct(1,1,ne_parent) ! get the next element in a refined branch
+          enddo
+          np0 = elem_nodes(2,ne_parent)
+          ne1 = elem_cnct(1,1,ne_parent)
+          do while(elem_cnct(1,0,ne1).eq.1)
+             ne1 = elem_cnct(1,1,ne1) ! get the next element in a refined branch
+          enddo
+          ne2 = elem_cnct(1,2,ne_parent)
+          do while(elem_cnct(1,0,ne2).eq.1)
+             ne2 = elem_cnct(1,1,ne2) ! get the next element in a refined branch
+          enddo
+          np1 = elem_nodes(2,ne1)
+          np2 = elem_nodes(2,ne2)
+          P(:) = node_xyz(:,np0) ! point at end of parent branch
+          Q(:) = node_xyz(:,np1) ! point at end of child1 branch
+          R(:) = node_xyz(:,np2) ! point at end of child2 branch
+          call make_plane_from_3points(NORML,1,P,Q,R) !calculate plane
+
+          P(:) = node_xyz(:,np0) ! point at end of parent branch
+          Q(:) = 0.5_dp*(node_xyz(:,np1)+node_xyz(:,np2))
+          R(1:3) = Q(1:3) + NORML(1:3)
+          call make_plane_from_3points(NORML,1,P,Q,R) !calculate plane
+!!! NORML is now the plane between the child branches
+
+          dist_p1 = -scalar_product_3(norml,node_xyz(:,np1)) - norml(4) ! distance between two planes
+          dist_p2 = -scalar_product_3(norml,node_xyz(:,np2)) - norml(4) ! distance between two planes
+
+          do nd = 1,num_data
+             nsp = map_array(nd) !space # that random point belongs to
+             if(nsp.eq.ne_parent)then !random point belongs to this element space
+                dist = -scalar_product_3(norml,data_xyz(1,nd)) - norml(4) ! distance between two planes
+                if(dist.ge.zero_tol.and.dist_p1.ge.zero_tol)then
+                   map_array(nd) = ne1
+                else if(dist.ge.zero_tol.and.dist_p1.lt.zero_tol)then
+                   map_array(nd) = ne2
+                else if(dist.lt.zero_tol.and.dist_p2.le.zero_tol)then
+                   map_array(nd) = ne2
+                else if(dist.lt.zero_tol.and.dist_p2.gt.zero_tol)then
+                   map_array(nd) = ne1
+                endif
+             endif
+          enddo !nd
+
+          num_points = count(map_array.eq.ne1)
+          if(diagnostics_on)then
+             write(*,'(i6,'' initial weights for element'',i7)') num_points,ne1
+          endif
+
+          if(elem_cnct(1,0,ne1).ne.0)then
+             num_next_parents = num_next_parents+1
+             local_parent_temp(num_next_parents) = ne1
+          endif
+          if(elem_cnct(1,0,ne2).ne.0)then
+             num_next_parents = num_next_parents+1
+             local_parent_temp(num_next_parents) = ne2
+          endif
+       enddo ! num_parents
+       local_parent(1:num_next_parents) = local_parent_temp(1:num_next_parents)
+    enddo
+
+    call enter_exit(sub_name,2)
+
+  end subroutine split_weight_points_initial
 
 
   !###############################################################

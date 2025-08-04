@@ -261,6 +261,27 @@ contains
 !
 !###################################################################################
 !
+  subroutine define_data_weights_c(DATAFILE, filename_len) bind(C, name="define_data_weights_c")
+
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use other_consts, only: MAX_FILENAME_LEN
+    use geometry, only: define_data_weights
+    implicit none
+
+    integer,intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: DATAFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+
+    call strncpy(filename_f, DATAFILE, filename_len)
+
+    call define_data_weights(filename_f)
+
+  end subroutine define_data_weights_c
+
+!
+!###################################################################################
+!
   subroutine filter_units_in_ply_c() bind(C, name="filter_units_in_ply_c")
 
     use geometry, only: filter_units_in_ply

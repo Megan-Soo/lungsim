@@ -22,6 +22,7 @@ void list_tree_statistics_c(const char *filename, int *filename_len);
 extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target, double *offset, double *spacing);
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
+void define_data_weights_c(const char *DATAFILE, int *filename_len);
 void define_init_volume_c(double *FRC, const char *FIELDFILE, int *filename_len);
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
@@ -84,6 +85,12 @@ void define_data_geometry(const char *DATAFILE)
 {
   int filename_len = (int)strlen(DATAFILE);
   define_data_geometry_c(DATAFILE, &filename_len);
+}
+
+void define_data_weights(const char *DATAFILE)
+{
+  int filename_len = (int)strlen(DATAFILE);
+  define_data_weights_c(DATAFILE, &filename_len);
 }
 
 void filter_units_in_ply(void)

@@ -29,6 +29,7 @@ module exports
        export_elem_field, &
        export_terminal_solution, &
        export_dvdt, & ! (MS) added subroutine
+       export_dvdt_bin, & ! (MS) added subroutine
        export_mapped_voxels, & ! (MS) added subroutine
        export_mapped_units, & ! (MS) added subroutine
        export_terminal_perfusion,&
@@ -904,7 +905,7 @@ contains
           write(10,'(1X,''Node: '',I12)') np ! for each node,
           ! Write column in one line
           do i = 1, size(units_dvdt,1)
-            if(units_dvdt(i,nolist).ne.0.0_dp)then ! skip all zero volumes (assuming tissue units never collapse completely)
+            if(units_dvdt(i,nolist).ne.0.0_dp)then ! skip all zero values due to excess memory alloc (assuming tissue vols never reach zero)
                write(10, '(G0)', advance='no') units_dvdt(i, nolist)  ! G0 auto-adjusts width
                write(10, '(A)', advance='no') " "       ! Add space
             endif
@@ -915,6 +916,61 @@ contains
    close(10)
 
   end subroutine export_dvdt
+!
+!##############################################################################
+!
+   subroutine export_dvdt_bin(BINFILE, name)
+   ! this exports units_dvdt values as stream unformatted binary format to save space
+   ! (a human readable txt file exported from export_dvdt can be quite large)
+   use iso_fortran_env, only: int32, real64
+   implicit none
+   character(len=*), intent(in) :: BINFILE
+   character(len=*), intent(in) :: name
+
+   integer :: nolist, i, np, ne, count
+   character(len=300) :: writefile
+   real(real64), allocatable :: tmp(:)
+
+   ! decide file name
+   if (index(BINFILE, ".bin") > 0) then
+      writefile = BINFILE
+   else
+      writefile = trim(BINFILE)//'.bin'
+   end if
+
+   if (num_units > 0) then
+      open(unit=10, file=writefile, status='replace', &
+            access='stream', form='unformatted', action='write')
+
+      do nolist = 1, num_units
+         ne = units(nolist)
+         np = elem_nodes(2, ne)
+
+         ! collect nonzero values for this unit
+         count = 0
+         allocate(tmp(size(units_dvdt,1)))
+         do i = 1, size(units_dvdt,1)
+            if (units_dvdt(i,nolist) /= 0.0_real64) then
+               count = count + 1
+               tmp(count) = units_dvdt(i,nolist)
+            end if
+         end do
+
+         ! write node id
+         write(10) int(np,int32)
+         ! write how many values
+         write(10) int(count,int32)
+         ! write the values
+         if (count > 0) then
+            write(10) tmp(1:count)
+         end if
+
+         deallocate(tmp)
+      end do
+
+      close(10)
+   end if
+   end subroutine export_dvdt_bin
 !
 !##############################################################################
 !

@@ -16,7 +16,7 @@ module arrays
   ! (MS) these are variables that are shareable across subroutines/scripts
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
        num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen,&
-       num_unmapped,num_mapped,num_steps,num_voxels,unmapped_voxels ! (MS) added 
+       num_unmapped,num_mapped,num_steps,num_voxels,unmapped_voxels, num_weights ! (MS) added 
 
   integer,allocatable :: nodes(:) !allocated in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
@@ -48,6 +48,7 @@ module arrays
   real(dp),allocatable :: signals_2d(:,:) ! (MS) added
   real(dp),allocatable :: spaces(:) ! (MS) added
   real(dp),allocatable :: mapped_voxels(:,:) ! (MS) added to store coordinates of mapped voxels for export
+  real(dp),allocatable :: weights(:,:) ! (MS) added to store point cloud coords to add weight to CoM in growing
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -163,7 +164,8 @@ module arrays
        SparseVal, RHS, prq_solution, solver_solution, FIX, &
        units_dvdt,unmapped_units,mapped_units,mapped_elems,spaces,signals_2d,& ! (MS) added
        num_unmapped,num_mapped,num_steps,num_voxels,mapped_voxels,unmapped_voxels,& ! (MS) added
-       unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol ! (MS) added
+       unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol,& ! (MS) added
+       weights, num_weights ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)

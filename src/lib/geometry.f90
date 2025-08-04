@@ -52,6 +52,7 @@ module geometry
   public make_2d_vessel_from_1d
   public reallocate_node_elem_arrays
   public set_initial_volume
+  public define_data_weights
   public define_init_volume ! (MS) added subroutine
   public filter_units_in_ply ! (MS) added subroutine
   public filter_elems_in_ply ! (MS) added subroutine
@@ -1111,6 +1112,85 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine define_data_geometry
+
+!!!#############################################################################
+
+  subroutine define_data_weights(datafile)
+    !*define_data_weights:* reads data points from a file to store in weights array
+
+    character(len=*) :: datafile
+    ! Local variables
+    integer :: iend,ierror,length_string,ncount,nj,itemp
+    character(len=132) :: buffer,readfile
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'define_data_weights'
+    call enter_exit(sub_name,1)
+
+    if(index(datafile, ".ipdata")> 0) then !full filename is given
+       readfile = datafile
+    else ! need to append the correct filename extension
+       readfile = trim(datafile)//'.ipdata'
+    endif
+
+    open(10, file=readfile, status='old')
+    read(unit=10, fmt="(a)", iostat=ierror) buffer
+
+    !set the counted number of data points to zero
+    ncount = 0
+
+!!! first run through to count the number of data points
+    read_line_to_count : do
+       read(unit=10, fmt="(a)", iostat=ierror) buffer
+       if(ierror<0) exit !ierror<0 means end of file
+       ncount = ncount + 1
+    end do read_line_to_count
+    num_weights = ncount
+    close (10)
+    write(*,'('' Read'',I7,'' weight points from file'')') num_weights
+
+!!! allocate arrays now that we know the size required
+    if(allocated(weights)) deallocate(weights)
+    allocate(weights(3,num_weights))
+
+!!! read the data point information
+    open(10, file=readfile, status='old')
+    read(unit=10, fmt="(a)", iostat=ierror) buffer
+
+    !set the counted number of data points to zero
+    ncount = 0
+    read_line_of_data : do
+
+       ! read the data #; z; y; z; wd1; wd2; wd3 for each data point
+       read(unit=10, fmt="(a)", iostat=ierror) buffer
+       if(ierror<0) exit !ierror<0 means end of file
+       length_string = len_trim(buffer) !length of buffer, and removed trailing blanks
+
+       ! read data number
+       buffer=adjustl(buffer) !remove leading blanks
+       iend=index(buffer," ",.false.)-1 !index returns location of first blank
+       if(length_string == 0) exit
+       ncount=ncount+1
+       read (buffer(1:iend), '(i6)') itemp
+
+       do nj=1,3
+          ! read x,y,z coordinates
+          buffer = adjustl(buffer(iend+1:length_string)) !remove data number from string
+          buffer = adjustl(buffer) !remove leading blanks
+          length_string = len(buffer) !new length of buffer
+          iend=index(buffer," ",.false.)-1 !index returns location of first blank
+          read (buffer(1:iend), '(D25.17)') weights(nj,ncount)
+       enddo !nj
+
+    enddo read_line_of_data
+
+    close(10)
+
+    call enter_exit(sub_name,2)
+
+  end subroutine define_data_weights
 
 !!!#############################################################################
 
