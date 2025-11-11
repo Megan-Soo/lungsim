@@ -26,12 +26,12 @@ module pressure_resistance_flow
 
   !Interfaces
   private
-  public evaluate_prq,calculate_ppl
+  public evaluate_prq,calculate_ppl, estimate_ppl,average_ppl ! (MS) added estimate_ppl to be public (so wave_transmission can use it)
 contains
 !###################################################################################
 !
 !*evaluate_PRQ:* Solves for pressure and flow in a rigid or compliant tree structure
-  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,remodeling_grade)
+  subroutine evaluate_prq(mesh_type,vessel_type,grav_dirn,grav_factor,bc_type,inlet_bc,outlet_bc,remodeling_grade,FRC)
 
     !local variables
     integer :: mesh_dof,depvar_types
@@ -58,6 +58,10 @@ contains
     real(dp) :: P2,Q01,Rin,Rout,x_cap,y_cap,z_cap,Ppl,LPM_R,Lin,Lout
     integer :: update_flow_nzz_row
 
+    real(dp),intent(in) :: FRC ! (MS) added: FRC volume for estimating pleural pressure
+    logical :: found ! (MS) added
+    integer :: nunit ! (MS) added
+
     sub_name = 'evaluate_prq'
     call enter_exit(sub_name,1)
 !!---------DESCRIPTION OF MODEL Types -----------
@@ -77,6 +81,7 @@ contains
     !pressure (at inlet and outlets)
     !flow (flow at inlet pressure at outlet).
 
+call estimate_ppl(FRC)
 
 mechanics_type='linear'
 
@@ -294,7 +299,7 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
 !Put the ladder stuff here --> See solve11.f
          if(mesh_type.eq.'full_plus_ladder')then
            do ne=1,num_elems
-              if(elem_field(ne_group,ne).eq.1.0_dp)then!(elem_field(ne_group,ne)-1.0_dp).lt.TOLERANCE)then
+              if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS) if it's the connector element between arteriole and venule
                 ne0=elem_cnct(-1,1,ne)!upstream element number
                 ne1=elem_cnct(1,1,ne)
                 P1=prq_solution(depvar_at_node(elem_nodes(2,ne0),0,1),1) !pressure at start node of capillary element
@@ -306,7 +311,22 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
                 x_cap=node_xyz(1,elem_nodes(1,ne))
                 y_cap=node_xyz(2,elem_nodes(1,ne))
                 z_cap=node_xyz(3,elem_nodes(1,ne))
-                call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): linearly distributed based on node's height
+
+                ! (MS) added: use unit's Ppl at FRC 
+                found=.FALSE.
+                do nunit=1,num_units
+                  if(units(nunit).eq.ne0) then
+                    found=.true.
+                    exit
+                  endif
+                  Ppl = pleural_press(nunit)
+                enddo
+                if(.NOT.found) then
+                  print *,"Warning --> unit not found for element",ne
+                  stop
+                endif
+                ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+
                 Lin=elem_field(ne_length,ne0)
                 Lout=elem_field(ne_length,ne1)
                  call cap_flow_ladder(ne,LPM_R,Lin,Lout,P1,P2,&
@@ -353,7 +373,22 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
           x_cap=node_xyz(1,elem_nodes(1,ne))
           y_cap=node_xyz(2,elem_nodes(1,ne))
           z_cap=node_xyz(3,elem_nodes(1,ne))
-          call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl)
+          
+          ! (MS) added: use unit's Ppl at FRC 
+          found=.FALSE.
+          do nunit=1,num_units
+            if(units(nunit).eq.ne0) then
+              found=.true.
+              exit
+            endif
+            Ppl = pleural_press(nunit)
+          enddo
+          if(.NOT.found) then
+            print *,"Warning --> unit not found for element",ne
+            stop
+          endif
+          ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+          
           Lin=elem_field(ne_length,ne0)
           Lout=elem_field(ne_length,ne1)
           call cap_flow_ladder(ne,LPM_R,Lin,Lout,P1,P2,&
@@ -941,6 +976,7 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
     integer :: nj,np,ne,ny,nn
     real(dp) :: h,Ptm,R0,Pblood,Ppl,counter,cc1,cc2,cc3
     real(dp) :: alt_hyp,alt_fib,prox_fib,narrow_rad_one,narrow_rad_two,narrow_factor,prune_rad,prune_fraction,counter1,counter2
+    real(dp),parameter :: dist=5.0_dp ! (MS) added: distance in mm to average Ppl over
     integer,allocatable :: templss(:)
 
     character(len=60) :: sub_name
@@ -959,7 +995,11 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         if(nn.eq.1) np=elem_nodes(1,ne)
         if(nn.eq.2) np=elem_nodes(2,ne)
         ny=depvar_at_node(np,0,1)
-        call calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
+        
+        ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
+        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+
         Pblood=prq_solution(ny,1) !Pa
         Ptm=Pblood+Ppl     ! Pa
         if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
@@ -1058,7 +1098,11 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         if(nn.eq.1) np=elem_nodes(1,ne)
         if(nn.eq.2) np=elem_nodes(2,ne)
         ny=depvar_at_node(np,0,1)
-        call calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
+
+        ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
+        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+
         Pblood=prq_solution(ny,1) !Pa
         Ptm=Pblood+Ppl     ! Pa
         if(nn.eq.1) R0=elem_field(ne_radius_in0,ne)
@@ -1317,7 +1361,8 @@ subroutine map_flow_to_terminals
       ne=units(nu)
       np=elem_nodes(2,ne)
       unit_field(nu_perf,nu)=elem_field(ne_Qdot,ne)
-      unit_field(nu_blood_press,nu)=node_field(nj_bv_press,np)
+      unit_field(nu_blood_press,nu)=node_field(nj_bv_press,np) ! (MS) original line
+      ! unit_field(nu_blood_press,nu)=elem_field(nj_bv_press,ne) ! (MS) added: use pressure at element instead of node [no diff]
     enddo
 
     call enter_exit(sub_name,2)
@@ -1351,7 +1396,98 @@ subroutine calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
     call enter_exit(sub_name,2)
 end subroutine calculate_ppl
 
+!##################################################################
+
+!*estimate_ppl* estimate pleural pressure at a node (estimate_pleural_pressure in ventilation.f90),
+! based on Pel (estimate_tissue_compliance in ventilation.f90) 
+! Ppl(unit) = -Pel(unit)+Palv(unit)
+! assuming at FRC, alveolar pressure Palv = 0 (atmospheric pressure), then Ppl = -Pel
 !
+subroutine estimate_ppl(FRC)
+
+  real(dp), intent(in) :: FRC !(MS) added
+  !Local variables
+  integer :: nunit
+  real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
+  real(dp) :: undef,ratio,lambda,exp_term
+  character(len=60) :: sub_name
+
+  sub_name = 'estimate_ppl'
+
+  call enter_exit(sub_name,1)
+
+  if(allocated(pleural_press)) deallocate(pleural_press)
+  allocate(pleural_press(num_units))
+  pleural_press = 0.0_dp
+
+  undef = 0.5 * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! FRC is segmented volume of imaged lungs. Fix refvol=0.5 for now.
+
+  do nunit = 1, num_units ! look for unit's nunit, given its branch ne  
+    !calculate Pel for the tissue unit
+    ratio = unit_field(nu_vol,nunit)/undef
+    lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
+    exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+    unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
+          -1.0_dp)*exp_term/lambda
+  
+    pleural_press(nunit) = - unit_field(nu_pe,nunit) !Pa, assuming Palv = 0
+  enddo
+
+  call enter_exit(sub_name,2)
+
+end subroutine estimate_ppl
+!
+!##################################################################
+!
+subroutine average_ppl(np,dist,Ppl)
+
+  integer, intent(in) :: np
+    real(dp), intent(in) :: dist
+    real(dp), intent(out) :: Ppl
+    !Local variables
+    integer :: nj,np2,ne,count
+    real(dp) :: d,xi,yi,zi,xj,yj,zj
+    character(len=60) :: sub_name
+
+    sub_name = 'average_Ppl'
+
+    call enter_exit(sub_name,1)
+    Ppl = 0.0_dp
+    count = 0
+    ! get coordinates of the target node
+    xi = node_xyz(1,np)
+    yi = node_xyz(2,np)
+    zi = node_xyz(3,np)
+
+    ! loop over all elements to find nodes within dist mm of the target node np
+    do ne = 1, num_elems
+      do nj = 1,2
+        if(nj.eq.1) then
+          np2 = elem_nodes(1,ne)
+        else
+          np2 = elem_nodes(2,ne)
+        endif
+        xj = node_xyz(1,np2)
+        yj = node_xyz(2,np2)
+        zj = node_xyz(3,np2)
+        d = sqrt((xi - xj)**2 + (yi - yj)**2 + (zi - zj)**2)
+        if(d.le.dist) then
+          Ppl = Ppl + pleural_press(elem_units_below(ne)) !pleural_press(unit) defined in estimate_ppl subroutine in this module
+          count = count + 1
+        endif
+      enddo
+    enddo
+
+    if(count.gt.0) then
+      Ppl = Ppl/dble(count)
+    else
+      print *, 'average_ppl: no neighboring units found within ',dist,' mm of node ',np
+      stop
+    endif
+
+    call enter_exit(sub_name,2)
+
+end subroutine average_ppl
 !##################################################################
 !
 subroutine get_variable_offset(depvar,mesh_dof,FIX,offset)

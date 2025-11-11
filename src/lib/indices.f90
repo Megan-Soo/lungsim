@@ -32,7 +32,7 @@ module indices
   ! indices for unit_field
   integer :: num_nu,nu_vol=0,nu_comp=0,nu_conc2=0,nu_Vdot0=0,nu_Vdot1=0, &
        nu_Vdot2=0,nu_dpdt=0,nu_pe=0,nu_vt=0,nu_air_press=0,nu_conc1=0,nu_vent=0,&
-       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_vmin=0,nu_vmax=0 ! (MS) added nu_vmin=0,nu_vmax=0
+       nu_vd=0,nu_perf=0,nu_blood_press=0,nu_vmin=0,nu_vmax=0,nu_label=0 ! (MS) added nu_vmin=0,nu_vmax=0,nu_label=0
   !indices for gas exchange field
   ! indices for gasex_field
   integer,parameter :: num_gx = 12
@@ -66,7 +66,7 @@ module indices
        nu_Vdot2,nu_dpdt,nu_pe,nu_vt,nu_air_press,&
        nu_conc1,nu_vent,nu_vd,&
        nu_perf,nu_blood_press,&
-       nu_vmin,nu_vmax ! (MS) added nu_vmin,nu_vmax
+       nu_vmin,nu_vmax, nu_label ! (MS) added nu_vmin,nu_vmax,nu_label
   
   public num_gx, ng_p_alv_o2,ng_p_alv_co2,ng_p_ven_o2,ng_p_ven_co2, &
        ng_p_cap_o2, ng_p_cap_co2,ng_source_o2,ng_source_co2, &
@@ -271,7 +271,8 @@ contains
     ne_vd_bel = 7
     ne_vol_bel = 8
     ! indices for unit_field
-    num_nu = 0
+    num_nu = 1 ! (MS) edited: changed num_nu from 0 to 1
+    nu_label=1 ! (MS) added
     
     call enter_exit(sub_name,2)
     
@@ -302,10 +303,13 @@ contains
     ne_resist=8 !resistance of a blood vessel
     ne_group=9!Groups vessels into arteries (field=0), capillaries (field=1) and veins(field=2)
     !indices for units
-    num_nu=2
+    ! num_nu=2
+    num_nu=4
     nu_perf=1
     nu_blood_press=2
-    
+    nu_vol=3 ! (MS) added this to estimate pleural pressure
+    nu_vt=4 ! (MS) don't need this for perfusion, but assigned in define_init_volume in geometry.f90
+
     call enter_exit(sub_name,2)
   end subroutine perfusion_indices
   

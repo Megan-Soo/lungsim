@@ -16,7 +16,7 @@ module arrays
   ! (MS) these are variables that are shareable across subroutines/scripts
   integer :: num_elems,num_elems_2d,num_groups,num_nodes,num_data, &
        num_nodes_2d,num_triangles,num_units,num_vertices,num_lines_2d,maxgen,&
-       num_unmapped,num_mapped,num_steps,num_voxels,unmapped_voxels, num_weights ! (MS) added 
+       num_unmapped,num_mapped,num_steps,num_voxels,unmapped_voxels ! (MS) added 
 
   integer,allocatable :: nodes(:) !allocated in define_node_geometry
   integer,allocatable :: nodes_2d(:) !allocated in define_node_geometry_2d
@@ -48,7 +48,7 @@ module arrays
   real(dp),allocatable :: signals_2d(:,:) ! (MS) added
   real(dp),allocatable :: spaces(:) ! (MS) added
   real(dp),allocatable :: mapped_voxels(:,:) ! (MS) added to store coordinates of mapped voxels for export
-  real(dp),allocatable :: weights(:,:) ! (MS) added to store point cloud coords to add weight to CoM in growing
+  integer,allocatable :: label_map(:,:) ! (MS) added to store image-based seed split 
 
   ! from p-r-f
   integer,allocatable :: mesh_from_depvar(:,:,:)
@@ -77,7 +77,7 @@ module arrays
   real(dp),allocatable :: unit_dpdt(:,:) ! (MS) added: array to store pressure of each unit at each dt of a breath cycle
   real(dp),allocatable :: time_sample(:) ! (MS) added: array to store timestamps of sampled measurements
   real(dp),allocatable :: transpulm_press(:) ! (MS) added: array to store transpulmonary pressure, pptrans, for vol-press curve
-  real(dp),allocatable :: pleural_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
+  real(dp),allocatable :: pleural_press(:) ! (MS) added: array to store unit's average pleural pressure across a breath cycle
   real(dp),allocatable :: muscle_press(:) ! (MS) added: array to store pleural pressure for vol-press curve
   real(dp),allocatable :: tidal_vol(:)
   real(dp),allocatable :: vertex_xyz(:,:)
@@ -165,7 +165,7 @@ module arrays
        units_dvdt,unmapped_units,mapped_units,mapped_elems,spaces,signals_2d,& ! (MS) added
        num_unmapped,num_mapped,num_steps,num_voxels,mapped_voxels,unmapped_voxels,& ! (MS) added
        unit_dvdt, unit_dpdt, time_sample, transpulm_press, pleural_press, muscle_press, tidal_vol,& ! (MS) added
-       weights, num_weights ! (MS) added
+       label_map ! (MS) added
 
 contains
   subroutine set_node_field_value(row, col, value)

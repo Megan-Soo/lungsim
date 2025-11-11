@@ -34,7 +34,7 @@ module growtree
 
   !Interfaces
   private
-  public grow_tree,smooth_1d_tree
+  public grow_tree,smooth_1d_tree, run_global_opt
 
 contains
 
@@ -245,7 +245,6 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine calculate_seed_cofm
-
 
   !###############################################################
   !
@@ -757,9 +756,7 @@ contains
 
   end subroutine group_seeds_with_branch
 
-
 !!!#############################################################################
-
   !
   !*group_seeds_with_branch_initial:* groups a set of seed points with the
   ! closest candidate parent branches. reassigns data (seed) points
@@ -935,7 +932,7 @@ contains
   !*grow_recursive_tree:* the main growing subroutine (public). Genertes a volume-filling
   ! tree into a closed surface.
   !
-subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_list, &
+  subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_list, &
        parent_ne,triangle,angle_max,angle_min,branch_fraction,length_limit,shortest_length, &
        rotation_limit,vertex_xyz,to_export,grouping)
 
@@ -1012,7 +1009,11 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
           call group_seeds_with_branch_initial(map_seed_to_elem,map_seed_to_space, &
                num_next_parents,num_seeds_from_elem,num_terminal,local_parent)
        else if(grouping(1:5).eq.'split')then
-          call split_seed_points_initial(map_seed_to_space,parent_ne)
+         if(map_in)then ! (MS) added: add a check before split_seed_points_initial to see if a map was read in
+            call map_seed_points_initial(map_seed_to_space,parent_ne,still_mapping) ! (MS) added: assign parent elem to the first 2 groups in the map
+         else
+            call split_seed_points_initial(map_seed_to_space,parent_ne)
+         endif
        endif
     endif !parent_list.gt.1
 
@@ -1060,10 +1061,17 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
 
              length_parent = elem_field(ne_length,ne_parent)
 
+! (MS) added: add a check bef split_seed_points to see if splits from the map still available for this ne_parent
+            if(map_in.and.still_mapping)then
+               call map_seed_points(map_seed_to_elem,np_start,still_mapping)
+               ! don't need enough_points bc map groups will always have enough_points
+               ! but need still_mapping bool to switch to plane-based splitting after reading all mapping
+            else
 !!! Split each set of seed points using the plane defined by the
 !!! parent branch and the centre of mass. Seed points get associated with NEW elements (ne+1,ne+2)
-             call split_seed_points(map_seed_to_elem,ne_parent,ne,np_start,&
-                  np_prnt_start,np_grnd_start,COFM,enough_points)
+               call split_seed_points(map_seed_to_elem,ne_parent,ne,np_start,&
+                  np_prnt_start,np_grnd_start,COFM,enough_points) ! (MS) splits based on COFM & parent nodes. if colinear, use grandparent node
+            endif
 
 !!! check whether enough seed points remaining in BOTH seed groups for branching to be done
 !!! (note: this could be improved to continue branching in one set of seeds)
@@ -1136,7 +1144,12 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
                          map_seed_to_space(nd_min) = ne ! recording element number
 
                          if(to_export) then
-                           write(40,*) nd_min,ne
+                           !np=elem_nodes(2,ne) ! (MS) added: grown node number
+                           !x = node_xyz(1,np) ! (MS) added: coords of grown node number
+                           !y = node_xyz(2,np)
+                           !z = node_xyz(3,np)
+                           write(40,*) nd_min,ne,&
+                           elem_nodes(2,ne) ! (MS) added: np (Node number of terminal node)
                          endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np)
@@ -1181,7 +1194,8 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
                          map_seed_to_space(nd_min) = ne ! recording element number
 
                          if(to_export) then
-                           write(40,*) nd_min,ne
+                           write(40,*) nd_min,ne,&
+                           elem_nodes(2,ne) ! (MS) added: np (Node number of terminal node)
                          endif
                       endif
                       if(diagnostics_on) write(*,'('' Not internal,adjusted:'',3(f12.5))') node_xyz(1:3,np-1)
@@ -1240,6 +1254,7 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
     call enter_exit(sub_name,2)
 
   end subroutine grow_recursive_tree
+
 
   !###############################################################
   !
@@ -1328,7 +1343,7 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
   end subroutine limit_branch_angles
 
 
-  !##################################################
+!##################################################
   !
   !*reduce_branch_angle:* calculates the direction of a branch for a given branch angle
 
@@ -1421,13 +1436,8 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
     integer,intent(in) :: num_elem_start
     real(dp),intent(in) :: length_limit
 
-    integer :: n,ne,ne1,ne2,np,np0,np1,np2,n_smoothing_steps = 2 ! (MS) edited: reduced smoothing_steps from 2 to 1
-    real(dp) :: new_xyz(3), DIRECTION(3), len_ratio !(MS) added: DIRECTION, len_ratio
-    real (dp) :: len_ratio_target = 1.5_dp !(MS) added: len_ratio_target
-    real(dp) :: tol_len_ratio=0.1_dp ! (MS) added
-    integer :: max_iter=200 ! (MS) added
-    integer :: n_iter ! (MS) added
-    logical :: optimise ! (MS) added
+    integer :: n,ne,ne1,ne2,np,np0,np1,np2,n_smoothing_steps = 2
+    real(dp) :: new_xyz(3), DIRECTION(3) !(MS) added: DIRECTION
     character(len=60) :: sub_name
 
     sub_name = 'smooth_1d_tree'
@@ -1435,7 +1445,7 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
 
     do n = 1,n_smoothing_steps
        do ne = num_elems,num_elem_start,-1
-          if(elem_cnct(1,0,ne).eq.2)then !(MS) if a bifurcation set (1 parent & 2 child branches) is found
+          if(elem_cnct(1,0,ne).eq.2)then
              ne1 = elem_cnct(1,1,ne)
              ne2 = elem_cnct(1,2,ne)
              np0 = elem_nodes(1,ne)
@@ -1455,71 +1465,14 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
              DIRECTION(1:3)=(node_xyz(1:3,np2)-node_xyz(1:3,np))
              DIRECTION = unit_vector(DIRECTION)
              elem_direction(1:3,ne2) = DIRECTION(1:3)
-                           
-             elem_field(ne_length,ne) = distance_between_points(node_xyz(:,np0),node_xyz(:,np))
-             elem_field(ne_length,ne1) = distance_between_points(node_xyz(:,np),node_xyz(:,np1))
-             elem_field(ne_length,ne2) = distance_between_points(node_xyz(:,np),node_xyz(:,np2))
 
-            ! ! Adjust parent length to length ratio using new direction (maybe converge iteratively to acceptable range instead of directly calc like this)
-            ! node_xyz(:,np) = node_xyz(:,np0) + elem_direction(:,ne) *&
-            !          len_ratio_target*(elem_field(ne_length,ne1)+elem_field(ne_length,ne2))/2.0_dp
-            ! ! update lengths
-            ! elem_field(ne_length,ne) = distance_between_points(node_xyz(:,np0),node_xyz(:,np))
-            ! elem_field(ne_length,ne1) = distance_between_points(node_xyz(:,np),node_xyz(:,np1))
-            ! elem_field(ne_length,ne2) = distance_between_points(node_xyz(:,np),node_xyz(:,np2))
-             
-            ! ! update directions of children
-            ! DIRECTION(1:3)=(node_xyz(1:3,np1)-node_xyz(1:3,np))
-            !  DIRECTION = unit_vector(DIRECTION)
-            !  elem_direction(1:3,ne1) = DIRECTION(1:3)
-            !  DIRECTION(1:3)=(node_xyz(1:3,np2)-node_xyz(1:3,np))
-            !  DIRECTION = unit_vector(DIRECTION)
-            !  elem_direction(1:3,ne2) = DIRECTION(1:3)
-
-            ! ! check if close to target len_ratio
-            !  len_ratio = elem_field(ne_length,ne)/((elem_field(ne_length,ne1)+elem_field(ne_length,ne2))/2.0_dp) ! Lparent/Lmean_child 
-            !  if(abs(len_ratio-len_ratio_target)>tol_len_ratio)then ! if not met target AND not reached max_iter
-            !     optimise=.true. ! keep adjusting
-            !  else ! if met target OR reached max_iter
-            !     optimise=.false.
-            !  endif
-            !  n_iter=0
-            !  do while(optimise)
-            !    if(len_ratio.lt.len_ratio_target)then ! if parent shortened below average child length
-            !       ! shift bifurcation node away from parent --> longer parent, shorter children
-            !       node_xyz(:,np) = node_xyz(:,np0) + elem_direction(:,ne) * elem_field(ne_length,ne) * 1.1_dp ! increase factor
-                  
-            !    else ! if parent longer than average child length
-            !       ! shift bifurcation node closer to parent --> shorter parent, longer children
-            !       node_xyz(:,np) = node_xyz(:,np0) + elem_direction(:,ne) * elem_field(ne_length,ne) * 0.9_dp ! decrease factor
-            !    endif
-
-            !    ! update lengths
-            !    elem_field(ne_length,ne) = distance_between_points(node_xyz(:,np0),node_xyz(:,np))
-            !    elem_field(ne_length,ne1) = distance_between_points(node_xyz(:,np),node_xyz(:,np1))
-            !    elem_field(ne_length,ne2) = distance_between_points(node_xyz(:,np),node_xyz(:,np2))
-               
-            !    ! update direction of children
-            !    DIRECTION(1:3)=(node_xyz(1:3,np1)-node_xyz(1:3,np))
-            !    DIRECTION = unit_vector(DIRECTION)
-            !    elem_direction(1:3,ne1) = DIRECTION(1:3)
-            !    DIRECTION(1:3)=(node_xyz(1:3,np2)-node_xyz(1:3,np))
-            !    DIRECTION = unit_vector(DIRECTION)
-            !    elem_direction(1:3,ne2) = DIRECTION(1:3)               
-            
-            !    n_iter=n_iter+1
-            !    ! check if new lengths meet length ratio condition
-            !    len_ratio = elem_field(ne_length,ne)/((elem_field(ne_length,ne1)+elem_field(ne_length,ne2))/2.0_dp) ! Lparent/Lmean_child 
-            !    if(abs(len_ratio-len_ratio_target)>tol_len_ratio.and.n_iter<max_iter)then ! if not met target AND not reached max_iter
-            !       optimise=.true. ! keep adjusting
-            !    else ! if met target OR reached max_iter
-            !       optimise=.false.
-            !    endif
-            !  enddo ! optimise
-
+             elem_field(ne_length,ne) = distance_between_points(node_xyz(1,np0),node_xyz(1,np))
+             elem_field(ne_length,ne1) = distance_between_points(node_xyz(1,np),node_xyz(1,np1))
+             elem_field(ne_length,ne2) = distance_between_points(node_xyz(1,np),node_xyz(1,np2))
           endif
        enddo
     enddo
+    print *, 'Smoothing done'
     do ne = num_elems,num_elem_start,-1
        if(elem_cnct(1,0,ne).eq.0)then ! terminal, check branch length
           if(elem_field(ne_length,ne).lt.0.75_dp*length_limit)then
@@ -1602,7 +1555,7 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
     if(dat1.eq.0.and.dat2.eq.0)then
        enough_points(1:2) = .false.
        write(*,'('' Zero seed points associated with parent'',I6)') ne1
-       read(*,*) ! (MS)
+       read(*,*)
     else
        if(dat1.eq.0)then
           map_seed_to_elem(nd2_1st) = ne+1
@@ -1628,9 +1581,51 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
 
   end subroutine split_seed_points
 
+!###############################################################
+  subroutine map_seed_points(map_seed_to_elem,ne1,ne,rows_split_count,still_mapping)
+      integer, intent(inout) :: rows_split_count
+      logical, intent(inout) :: still_mapping
 
-  !###############################################################
-  !
+      if(rows_split_count.le.size(rows_split))then ! if haven't reached end of metadata in label_map
+         rows_split_count = rows_split_count + 1
+         still_mapping=.true.
+      else ! if reached last split iteration, then this is the last call for the subroutine
+         still_mapping=.false.
+      endif
+
+      idx_start = rows_split(rows_split_count)
+      if(still_mapping)then
+         idx_end = rows_split_count(rows_split_count+1) - 1
+      else
+         idx_end = size(label_map,1)
+      
+      do i = idx_start, idx_end ! go thru each row, ie, each seed group in this split iteration
+         col_count = pack(label_map(i,2:nlabels), label_map(i,2:nlabels)/=0) ! get num of labels in this group/row (ignore 1st col, identical to 2nd col)
+         do nd=1,num_data
+            nsp=map_seed_to_elem(nd) !space # that random point belongs to
+            if(nsp.eq.ne1)then !random point belongs to this element space
+               dist = -scalar_product_3(norml,data_xyz(1,nd)) - norml(4) ! distance between two planes
+               if(dist.ge.zero_tol)then
+                  if(dat1.eq.0) nd1_1st = nd
+                  DAT1=DAT1+1
+                  map_seed_to_elem(nd)=ne+1
+               else
+                  if(DAT2.eq.0) ND2_1ST=nd
+                  DAT2=DAT2+1
+                  map_seed_to_elem(nd)=ne+2
+               endif
+            endif
+            
+            if(nsp.eq.ne1)then ! if seed if part of this parent elem space
+               do col = 1,col_count
+                  if(unit_field(nu_label).eq.label_map(i,col))then ! check datapoint's label against label in this group/row
+                     map_seed_to_elem(nd) = ne+1
+
+         enddo !nd
+      
+  end subroutine map_seed_points
+!###############################################################
+!
   !*split_seed_points_initial:* divides a set of seed points into N subsets
   ! to match N terminal branches, using the plane that is orthogonal to the branching plane
   ! of child branches, and that passes mid-way between child branches.
@@ -1740,6 +1735,163 @@ subroutine grow_recursive_tree(num_elems_new,num_vertices,surface_elems,parent_l
 
   end subroutine split_seed_points_initial
 
+!###############################################################
+    subroutine map_seed_points_initial(map_array,ne_stem,still_mapping)
+
+    use mesh_utilities,only: distance_between_points
+    use indices
+
+    integer :: map_array(:),ne_stem
+    logical, intent(inout) :: still_mapping
+
+    !Local variables
+    integer :: local_parent(20),local_parent_temp(20),M,nd,ne_parent, &
+         ne1,ne2,np0,np1,np2,num_points,num_next_parents,num_parents
+    integer,allocatable :: grp1(:),grp2(:)
+    real(dp),allocatable :: node_xyz_grp1(:,:), node_xyz_grp2(:,:) ! (MS) added
+    integer :: n_grp1,n_grp2,kount1,kount2,i,nlabels ! (MS) added
+    real(dp) :: DIST,dist_p1,dist_p2,P(3),Q(3),R(3)
+    real(dp) :: COFM_grp1(3),COFM_grp2(3) ! (MS) added
+    logical :: c1g1
+
+    character(len=60) :: sub_name
+
+    sub_name = 'map_seed_points_initial'
+    call enter_exit(sub_name,1)
+
+    ne_parent = ne_stem
+    do while(elem_cnct(1,0,ne_parent).eq.1)
+       ne_parent = elem_cnct(1,1,ne_parent) ! get the next element in a refined branch
+    enddo
+    map_array(:) = ne_parent ! initialise that all seed points map to the stem branch
+
+    num_next_parents = 1
+    local_parent(1) = ne_parent
+    
+    if(size(label_map,1).gt.2)then ! determine if more than one split provided
+      still_mapping = .true.
+    else
+      still_mapping = .false. ! if only an initial split given, then stop referencing label_map after this split
+    endif
+
+    ! allocate two arrays for initial split into two groups
+    if (.not.allocated(node_xyz_grp1)) then
+      allocate(node_xyz_grp1(3, num_data))
+      node_xyz_grp1 = 0.0_dp
+    end if
+    if (.not.allocated(node_xyz_grp2)) then
+      allocate(node_xyz_grp2(3, num_data))
+      node_xyz_grp2 = 0.0_dp
+    end if
+    
+    ! Identify first two groups from label_map
+    nlabels = size(label_map,2)
+    grp1 = pack(label_map(1,2:nlabels), label_map(1,2:nlabels)/=0) ! get list of labels in group 1 (row 1) (ignore header label (col 1) and any zeroes at the tail)
+    n_grp1 = size(grp1) ! count number of labels in this group
+    grp2 = pack(label_map(2,2:nlabels),label_map(2,2:nlabels)/=0)
+    n_grp2 = size(grp2)
+    kount1=0
+    kount2=0
+    ! store group seeds in separate arrays
+    do nd=1,num_data ! loop thru all terminal datapoints/nodes
+      do i=1,n_grp1 ! check against labels per grp
+         if(unit_field(nu_label,nd).eq.grp1(i))then ! if this unit's label matches label in this grp
+            kount1=kount1+1
+            ! add line here to dynamically reallocate array
+            node_xyz_grp1(:,kount1) = node_xyz(:,nd) ! store coordinates in array
+         endif
+      enddo
+
+      do i=1,n_grp2 ! also check in grp 2
+         if(unit_field(nu_label,nd).eq.grp2(i))then
+            kount2=kount2+1
+            ! add line here to dynamically reallocate array
+            node_xyz_grp2(:,kount1) = node_xyz(:,nd) ! store coordinates in array
+         endif
+      enddo
+    enddo
+
+    ! get cofm of each seed grp
+    do nd=1,kount1
+      COFM_grp1(1:3)=COFM_grp1(1:3)+node_xyz_grp1(1:3,kount1)
+    enddo
+    COFM_grp1(1:3) = COFM_grp1(1:3)/real(kount1,kind=dp) !centre of mass
+    
+    do nd=1,kount2
+      COFM_grp2(1:3)=COFM_grp2(1:3)+node_xyz_grp2(1:3,kount2)
+    enddo
+    COFM_grp2(1:3) = COFM_grp2(1:3)/real(kount2,kind=dp) !centre of mass
+
+    do while(num_next_parents.ne.0) !while still some parent branches with seed points
+       num_parents = num_next_parents ! update the number of current local parent branches
+       num_next_parents = 0 ! reset the number of local parent branches in next generation
+       do M = 1,num_parents ! for each of the current local parent branches
+          ne_parent = local_parent(M) !parent element #
+          do while(elem_cnct(1,0,ne_parent).eq.1)
+             ne_parent = elem_cnct(1,1,ne_parent) ! get the next element in a refined branch
+          enddo
+          np0 = elem_nodes(2,ne_parent)
+          ne1 = elem_cnct(1,1,ne_parent)
+          do while(elem_cnct(1,0,ne1).eq.1)
+             ne1 = elem_cnct(1,1,ne1) ! get the next element in a refined branch
+          enddo
+          ne2 = elem_cnct(1,2,ne_parent)
+          do while(elem_cnct(1,0,ne2).eq.1)
+             ne2 = elem_cnct(1,1,ne2) ! get the next element in a refined branch
+          enddo
+          np1 = elem_nodes(2,ne1)
+          np2 = elem_nodes(2,ne2)
+          P(:) = node_xyz(:,np0) ! point at end of parent branch
+          Q(:) = node_xyz(:,np1) ! point at end of child1 branch
+          R(:) = node_xyz(:,np2) ! point at end of child2 branch
+
+         ! determine which child elem maps to which seed grp
+         if(distance_between_points(COFM_grp1,Q).lt.distance_between_points(COFM_grp2,Q))then ! if grp1 COFM closer to child1 end pt
+            c1g1=.true. ! set true to assign grp1 points to child1 elem
+         else
+            c1g1=.false. ! set false to assign grp1 points to child2 elem
+         endif
+
+         if(c1g1)then
+            do nd=1,num_data
+               map_array(nd) = ne1
+            enddo
+         else
+            do nd=1,num_data
+               map_array(nd) = ne2
+            enddo
+         endif
+
+          num_points = count(map_array.eq.ne1)
+          if(diagnostics_on)then
+             write(*,'(i6,'' initial seeds for element'',i7)') num_points,ne1
+          endif
+
+          if(num_points.eq.0)then
+             write(*,'('' Warning: number of points for element'',i6,'' is zero'')') ne1
+             write(*,'('' Press enter to continue; however the code is likely to fail'')')
+          endif
+          num_points = count(map_array.eq.ne2)
+          if(num_points.eq.0)then
+             write(*,'('' Warning: number of points for element'',i6,'' is zero'')') ne2
+             write(*,'('' Press enter to continue; however the code is likely to fail'')')
+          endif
+
+          if(elem_cnct(1,0,ne1).ne.0)then
+             num_next_parents = num_next_parents+1
+             local_parent_temp(num_next_parents) = ne1
+          endif
+          if(elem_cnct(1,0,ne2).ne.0)then
+             num_next_parents = num_next_parents+1
+             local_parent_temp(num_next_parents) = ne2
+          endif
+       enddo ! num_parents
+       local_parent(1:num_next_parents) = local_parent_temp(1:num_next_parents)
+    enddo
+
+    call enter_exit(sub_name,2)
+
+  end subroutine map_seed_points_initial
 
   !###############################################################
   !

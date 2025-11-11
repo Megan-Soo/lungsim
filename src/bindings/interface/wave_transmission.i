@@ -1,5 +1,5 @@
 
-%module(package="aether") wave_transmission
+%module(package="aether") wave_transmission // creates a library named aether with a module named wave_transmission
 %include symbol_export.h
 %include wave_transmission.h
 

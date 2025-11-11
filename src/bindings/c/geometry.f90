@@ -261,27 +261,6 @@ contains
 !
 !###################################################################################
 !
-  subroutine define_data_weights_c(DATAFILE, filename_len) bind(C, name="define_data_weights_c")
-
-    use iso_c_binding, only: c_ptr
-    use utils_c, only: strncpy
-    use other_consts, only: MAX_FILENAME_LEN
-    use geometry, only: define_data_weights
-    implicit none
-
-    integer,intent(in) :: filename_len
-    type(c_ptr), value, intent(in) :: DATAFILE
-    character(len=MAX_FILENAME_LEN) :: filename_f
-
-    call strncpy(filename_f, DATAFILE, filename_len)
-
-    call define_data_weights(filename_f)
-
-  end subroutine define_data_weights_c
-
-!
-!###################################################################################
-!
   subroutine filter_units_in_ply_c() bind(C, name="filter_units_in_ply_c")
 
     use geometry, only: filter_units_in_ply
@@ -382,6 +361,26 @@ contains
       call define_init_volume(FRC, filename_f)
   
       end subroutine define_init_volume_c
+!
+!##################################################################################
+!
+    ! subroutine define_label_c(FIELDFILE, filename_len) bind(C, name="define_label_c")
+
+    !   use iso_c_binding, only: c_ptr
+    !   use utils_c, only: strncpy
+    !   use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
+    !   use geometry, only: define_init_volume
+    !   implicit none
+  
+    !   integer,intent(in) :: filename_len
+    !   type(c_ptr), value, intent(in) :: FIELDFILE
+    !   character(len=MAX_FILENAME_LEN) :: filename_f
+  
+    !   call strncpy(filename_f, FIELDFILE, filename_len)
+  
+    !   call define_label(filename_f)
+  
+    !   end subroutine define_label_c
 !
 !##################################################################################
 !

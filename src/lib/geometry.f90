@@ -52,8 +52,9 @@ module geometry
   public make_2d_vessel_from_1d
   public reallocate_node_elem_arrays
   public set_initial_volume
-  public define_data_weights
   public define_init_volume ! (MS) added subroutine
+  public define_label ! (MS) added subroutine
+  public define_label_map ! (MS) added subroutine
   public filter_units_in_ply ! (MS) added subroutine
   public filter_elems_in_ply ! (MS) added subroutine
   public set_rad_upstream_filtered_elem ! (MS) added subroutine
@@ -340,7 +341,6 @@ contains
        nindex=no_hord
        elem_ordrs(nindex,ne)=elem_ordrs(nindex,ne_m)
     enddo
-
     !update current no of nodes and elements to determine connectivity
     np0=np !current highest node
     ne1=ne !current highest element
@@ -1112,85 +1112,6 @@ contains
     call enter_exit(sub_name,2)
 
   end subroutine define_data_geometry
-
-!!!#############################################################################
-
-  subroutine define_data_weights(datafile)
-    !*define_data_weights:* reads data points from a file to store in weights array
-
-    character(len=*) :: datafile
-    ! Local variables
-    integer :: iend,ierror,length_string,ncount,nj,itemp
-    character(len=132) :: buffer,readfile
-    character(len=60) :: sub_name
-
-    ! --------------------------------------------------------------------------
-
-    sub_name = 'define_data_weights'
-    call enter_exit(sub_name,1)
-
-    if(index(datafile, ".ipdata")> 0) then !full filename is given
-       readfile = datafile
-    else ! need to append the correct filename extension
-       readfile = trim(datafile)//'.ipdata'
-    endif
-
-    open(10, file=readfile, status='old')
-    read(unit=10, fmt="(a)", iostat=ierror) buffer
-
-    !set the counted number of data points to zero
-    ncount = 0
-
-!!! first run through to count the number of data points
-    read_line_to_count : do
-       read(unit=10, fmt="(a)", iostat=ierror) buffer
-       if(ierror<0) exit !ierror<0 means end of file
-       ncount = ncount + 1
-    end do read_line_to_count
-    num_weights = ncount
-    close (10)
-    write(*,'('' Read'',I7,'' weight points from file'')') num_weights
-
-!!! allocate arrays now that we know the size required
-    if(allocated(weights)) deallocate(weights)
-    allocate(weights(3,num_weights))
-
-!!! read the data point information
-    open(10, file=readfile, status='old')
-    read(unit=10, fmt="(a)", iostat=ierror) buffer
-
-    !set the counted number of data points to zero
-    ncount = 0
-    read_line_of_data : do
-
-       ! read the data #; z; y; z; wd1; wd2; wd3 for each data point
-       read(unit=10, fmt="(a)", iostat=ierror) buffer
-       if(ierror<0) exit !ierror<0 means end of file
-       length_string = len_trim(buffer) !length of buffer, and removed trailing blanks
-
-       ! read data number
-       buffer=adjustl(buffer) !remove leading blanks
-       iend=index(buffer," ",.false.)-1 !index returns location of first blank
-       if(length_string == 0) exit
-       ncount=ncount+1
-       read (buffer(1:iend), '(i6)') itemp
-
-       do nj=1,3
-          ! read x,y,z coordinates
-          buffer = adjustl(buffer(iend+1:length_string)) !remove data number from string
-          buffer = adjustl(buffer) !remove leading blanks
-          length_string = len(buffer) !new length of buffer
-          iend=index(buffer," ",.false.)-1 !index returns location of first blank
-          read (buffer(1:iend), '(D25.17)') weights(nj,ncount)
-       enddo !nj
-
-    enddo read_line_of_data
-
-    close(10)
-
-    call enter_exit(sub_name,2)
-
-  end subroutine define_data_weights
 
 !!!#############################################################################
 
@@ -4245,6 +4166,106 @@ contains
  end subroutine define_init_volume
 
 !!!#############################################################################
+ 
+  subroutine define_label(FIELDFILE)
+    !*define_label:* reads in a label field associated with terminal nodes of an
+    ! airway tree and assigns label information to each terminal node
+
+   character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
+
+   !     Local Variables
+   integer :: ierror,iostat,nu_read,nu,total,nunit,kount
+   character(LEN=132) :: ctemp1
+   character(len=250) :: readfile
+   character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'define_label'
+    call enter_exit(sub_name,1)
+
+   if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
+      readfile = FIELDFILE(1:250)
+   else ! need to append the correct filename extension
+      readfile = trim(FIELDFILE)//'.ipfiel'
+   endif    
+   
+   open(10, file=readfile, status='old')
+
+   read_number_of_nodes : do ! total SHOULD BE EQUAL TO num_units
+      read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+      if(index(ctemp1, "nodes")> 0) then
+         total = get_final_integer(ctemp1) !return the final integer
+         exit read_number_of_nodes
+      endif
+   end do read_number_of_nodes
+   print *, '[define_label] num terminal nodes = ', total
+   
+   nu_read = 0
+   kount = 0
+   !.....read the coordinate, derivative, and version information for each node.
+   read_a_node : do !define a do loop name
+      !.......read element number
+      read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+      if(index(ctemp1, "Node")> 0) then
+         nu_read = get_final_integer(ctemp1) !get global node number
+         do nunit=1,total ! (MS) for nunit in range(num_units):
+            nu=units(nunit)
+            if (nu_read == nu) then
+               read(unit=10, fmt="(a)", iostat=ierror) ctemp1
+               if(index(ctemp1, "value")> 0) then
+               unit_field(nu_label,nunit) = get_final_real(ctemp1) ! get last real value in string ctemp1
+               kount = kount+1
+               endif
+            endif
+         enddo
+      endif
+      if(kount.ge.num_units) exit read_a_node
+   end do read_a_node
+
+   call enter_exit(sub_name,2)
+
+  end subroutine define_label
+
+!!!#############################################################################
+
+   subroutine define_label_map(filename)
+      !*define_label_map:* reads in a 2D integer array from a binary file
+      ! along with a 1D integer array of metadata (list of row indices where each split iteration begins)
+      ! and prints them to the screen (for now)
+
+      ! implicit none
+      character(len=*), intent(in) :: filename
+      integer, allocatable :: arr(:,:)
+      integer, allocatable :: metadata(:)
+      integer :: nrows, ncols, nmeta
+      integer :: iounit=10
+
+      open(newunit=iounit, file=filename, access="stream", form="unformatted", &
+            action="read", status="old")
+
+      ! Read dimensions
+      read(iounit) nrows, ncols
+      allocate(arr(nrows, ncols))
+
+      ! Read array
+      read(iounit) arr
+
+      ! Read metadata length
+      read(iounit) nmeta
+      allocate(metadata(nmeta))
+
+      ! Read metadata
+      if (nmeta > 0) read(iounit) metadata
+
+      close(iounit)
+
+      print *, "Array:"
+      print *, arr
+      print *, "Metadata:", metadata
+   end subroutine define_label_map
+
+!!!#############################################################################
 
   subroutine volume_of_mesh(volume_model,volume_tree)
     !*volume_of_mesh:* calculates the volume of an airway mesh including
@@ -4724,7 +4745,6 @@ contains
     elem_nodes = 0
     elem_nodes(1:2,1:num_elems)=enodes_temp(1:2,1:num_elems)
     deallocate(enodes_temp)
-
     if(allocated(elem_field).and.num_ne.gt.0)then
        allocate(rnodes_temp(num_ne,num_elems))
        rnodes_temp=elem_field

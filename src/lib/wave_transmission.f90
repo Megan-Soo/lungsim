@@ -2403,6 +2403,9 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
   type(all_admit_param) :: admit_param
 
   !local variables
+  integer :: nunit ! (MS) added to loop over units to get Ppl
+  logical :: found ! (MS) added to check if unit is found
+  real(dp),parameter :: dist=5.0_dp ! (MS) added: distance in mm to average Ppl over
   real(dp) :: L,C,R, G,omega,gen_factor
   real(dp) :: E,h_bar,h,wavespeed,wolmer !should be global - maybe express as alpha (i.e. pre multiply)
   complex(dp) :: f10,bessel0,bessel1
@@ -2418,7 +2421,11 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       do nn=1,2
         if(nn.eq.1) np=elem_nodes(1,ne)
         if(nn.eq.2) np=elem_nodes(2,ne)
-        call calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
+
+        ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
+        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+        
         Ptm=Ppl     ! Pa
         if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
         if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
@@ -2525,7 +2532,11 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
       do nn=1,2
         if(nn.eq.1) np=elem_nodes(1,ne)
         if(nn.eq.2) np=elem_nodes(2,ne)
-        call calculate_ppl(np,grav_vect,mechanics_parameters,Ppl)
+
+        ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
+        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+
         Ptm=Ppl     ! Pa
         if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
         if(nn.eq.2)R0=elem_field(ne_radius_out0,ne)
@@ -2760,6 +2771,9 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
   real (dp) :: Ppl,P1,P2
   real(dp) :: Q01,Rin,Rout,Lin,Lout,x_cap,y_cap,z_cap
   complex(dp) :: eff_admit_downstream(no_freq)
+  integer :: nunit ! (MS) added to loop over units to get Ppl
+  logical :: found ! (MS) added to check if unit is found
+  real(dp),parameter :: dist=5.0_dp ! (MS) added: distance in mm to average Ppl over
 
   sub_name = 'capillary_admittance'
   call enter_exit(sub_name,1)
@@ -2776,7 +2790,11 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
     x_cap=node_xyz(1,elem_nodes(1,ne))
     y_cap=node_xyz(2,elem_nodes(1,ne))
     z_cap=node_xyz(3,elem_nodes(1,ne))
-    call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl)
+
+    ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
+    call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+    ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+
     Lin=elem_field(ne_length,ne0)
     Lout=elem_field(ne_length,ne1)
     Ptp=(cap_param%Palv-(-Ppl))/98.06d0 !Pa -> cmH2O

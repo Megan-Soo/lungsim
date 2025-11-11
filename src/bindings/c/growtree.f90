@@ -61,6 +61,5 @@ contains
   end subroutine smooth_1d_tree_c
 ! 
 !#########################################################################
-! 
-
+!
 end module growtree_c

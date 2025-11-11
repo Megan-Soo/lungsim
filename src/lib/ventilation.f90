@@ -129,8 +129,8 @@ contains
     unit_dpdt(1:num_samples,1:num_units) = 0.0_dp
     allocate(transpulm_press(num_samples))
     transpulm_press(1:num_samples) = 0.0_dp
-    allocate(pleural_press(num_samples))
-    pleural_press(1:num_samples) = 0.0_dp
+    allocate(pleural_press(num_units))
+    pleural_press(1:num_units) = 0.0_dp
     allocate(muscle_press(num_samples))
     muscle_press(1:num_samples) = 0.0_dp
     allocate(tidal_vol(num_samples))
@@ -241,6 +241,7 @@ contains
              unit_field(nu_vmin, nunit) = unit_field(nu_vol,nunit) ! reset min vol to vol at end of prev breath
              unit_field(nu_vmax, nunit) = 0.0_dp ! reset max vol to 0
           enddo
+          pleural_press(1:num_units) = 0.0_dp ! (MS) added: reset pleural pressure of units
        endif
 
 !!! solve for a single breath (for time up to endtime)
@@ -276,7 +277,6 @@ contains
             row = row+1 ! update the row to store value
             time_sample(row) = ttime! store timestamp 
             transpulm_press(row) = pptrans/98.0665_dp
-            pleural_press(row) = ppl_current/98.0665_dp
             muscle_press(row) = p_mus/98.0665_dp
             tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
              do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
@@ -319,6 +319,11 @@ contains
     ! Cabello 2006: "One joule is the energy needed to move 1 l of gas through a 10-cmH2O pressure gradient"
     
     call calculate_pob(WOBt,POB,ttime,sum_tidal,work_per_litre)
+
+    ! (MS) added: get each unit's average Ppl to be used in prq & wave_transmission
+    do nunit = 1,num_units
+       pleural_press(nunit) = pleural_press(nunit)/stepcount
+    enddo
 
     call write_end_of_breath(init_vol,current_vol,pmus_factor_in,pmus_step, &
          sum_expid,sum_tidal,volume_target,WOBe_insp,WOBr_insp,WOB_insp,&
@@ -626,6 +631,9 @@ contains
        np2 = elem_nodes(2,ne)
        ppl_current = ppl_current - unit_field(nu_pe,nunit) + &
             node_field(nj_aw_press,np2)
+       ! (MS) added
+       pleural_press(nunit) = pleural_press(nunit) &
+            - unit_field(nu_pe,nunit) + node_field(nj_aw_press,np2) 
     enddo !noelem
     ppl_current = ppl_current/num_units
 
