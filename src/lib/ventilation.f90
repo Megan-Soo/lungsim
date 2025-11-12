@@ -75,7 +75,7 @@ contains
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
-    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init ! (MS) added
+    real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
     real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
@@ -232,6 +232,7 @@ contains
           vt_ei = current_vol-init_vol ! initialise Tidal Vol at EI to current tidal volume beginning of the breath cycle
           ppl_init = ppl_current ! initialise Pleural Pressure at End Expiration of this breath cycle
           ppl_ei = ppl_current ! initialise Pleural Pressure at End Inspiration of this breath cycle
+          pptrans_ei = pptrans! Nov2025 initialise transpulm pressure at end insp of this breath cycle
 
           ! (MS) reset min max volumes of units
           do nunit = 1,num_units
@@ -285,6 +286,7 @@ contains
             ! Update variables
             vt_ei = current_vol-init_vol
             ppl_ei = ppl_current
+            pptrans_ei = pptrans ! Nov 2025. Use Transpulm pressure to calc Dynamic Compliance instead of Pleural pressure
           else ! Expiratory limb
             ! Update variables
             vt_ee = current_vol-init_vol
@@ -298,7 +300,8 @@ contains
     enddo !...WHILE(CONTINUE)
 
     ! (MS) added: calculate dynamic compliance
-    comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp)  ! defined below:
+   !  comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp)  ! defined below:
+    comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(pptrans_ei-pptrans)/98.0665_dp)  ! Nov 2025. Pressure diff defined as d_Transpulm Pressure instead of d_Pleural Pressure
     ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
     ! between points of apparent zero flow at the beginning and end of inspiration.
 
@@ -321,18 +324,22 @@ contains
    
     ! (MS) added: start.
     write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) ! defined below:
+   !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) ! defined below:
+    comp_dyn ! Nov 2025
     ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
     ! between points of apparent zero flow at the beginning and end of inspiration.
 
     ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
     write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
+   !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
+    comp_dyn / (init_vol/1.0e+6_dp) ! Nov 2025
     ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
     write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
-    ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+   !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+    comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
     write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
-    (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
+   !  (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
+    comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
     ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
    
     print * ! new line
