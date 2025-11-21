@@ -864,7 +864,8 @@ contains
           !write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vol,nolist))   !Volume (end expiration)
           !write(10,'(2X,4(1X,F12.6))') (unit_field(nu_press,nolist)) !Pressure
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_comp,nolist))  !Compliance (end exp)
-          write(10,'(2X,4(1X,F12.6))') (unit_field(nu_pe,nolist))    !Recoil pressure
+         !  write(10,'(2X,4(1X,F12.6))') (unit_field(nu_pe,nolist))    !Recoil pressure
+          write(10,'(2X,4(1X,F12.6))') (pleural_press(nolist))    ! (MS) Ppl(unit) = -Pel(unit)+Palv(unit). Use this instead of recoil pressure.
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vt,nolist))    !Tidal volume
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmin,nolist))    !Min volume (MS)
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmax,nolist))    !Max volume (MS)
