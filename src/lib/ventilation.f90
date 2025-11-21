@@ -632,8 +632,9 @@ contains
        ppl_current = ppl_current - unit_field(nu_pe,nunit) + &
             node_field(nj_aw_press,np2)
        ! (MS) added
-       pleural_press(nunit) = pleural_press(nunit) &
-            - unit_field(nu_pe,nunit) + node_field(nj_aw_press,np2) 
+       if(elem_field(ne_Vdot,1).gt.0.0_dp)then ! update Ppl(unit) up to peak inspiration
+         pleural_press(nunit) = - unit_field(nu_pe,nunit) + node_field(nj_aw_press,np2) 
+       endif
     enddo !noelem
     ppl_current = ppl_current/num_units
 
