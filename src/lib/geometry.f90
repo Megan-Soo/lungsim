@@ -1175,7 +1175,7 @@ contains
    allocate(mapped_elems(num_elems))
    mapped_elems(:) = 0 ! initialise to zero
 
-   kount = 1
+   kount = 0
    if(terminal_only)then
       do ne = 1,num_elems
          if(elem_field(ne_group,ne).eq.1.0_dp)then! (MS): if it's a capillary elem

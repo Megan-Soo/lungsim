@@ -2423,8 +2423,8 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         if(nn.eq.2) np=elem_nodes(2,ne)
 
         ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
-        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
-        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+        ! call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
         
         Ptm=Ppl     ! Pa
         if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
@@ -2534,8 +2534,8 @@ subroutine characteristic_admittance(no_freq,char_admit,prop_const,harmonic_scal
         if(nn.eq.2) np=elem_nodes(2,ne)
 
         ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
-        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
-        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+        ! call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
 
         Ptm=Ppl     ! Pa
         if(nn.eq.1)R0=elem_field(ne_radius_in0,ne)
@@ -2792,8 +2792,8 @@ subroutine capillary_admittance(no_freq,eff_admit,char_admit,reflect,prop_const,
     z_cap=node_xyz(3,elem_nodes(1,ne))
 
     ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
-    call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
-    ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+    ! call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+    call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
 
     Lin=elem_field(ne_length,ne0)
     Lout=elem_field(ne_length,ne1)

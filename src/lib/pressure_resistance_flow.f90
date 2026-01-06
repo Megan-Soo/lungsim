@@ -81,7 +81,7 @@ contains
     !pressure (at inlet and outlets)
     !flow (flow at inlet pressure at outlet).
 
-call estimate_ppl(FRC)
+! call estimate_ppl(FRC) ! (MS) ultimately decided not to use estimated ppl bc it takes too long to search and calc regional Ppl for each branch. So this can be removed.
 
 mechanics_type='linear'
 
@@ -312,20 +312,20 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
                 y_cap=node_xyz(2,elem_nodes(1,ne))
                 z_cap=node_xyz(3,elem_nodes(1,ne))
 
-                ! (MS) added: use unit's Ppl at FRC 
-                found=.FALSE.
-                do nunit=1,num_units
-                  if(units(nunit).eq.ne0) then
-                    found=.true.
-                    exit
-                  endif
-                  Ppl = pleural_press(nunit)
-                enddo
-                if(.NOT.found) then
-                  print *,"Warning --> unit not found for element",ne
-                  stop
-                endif
-                ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+                ! ! (MS) added: use unit's Ppl at FRC 
+                ! found=.FALSE.
+                ! do nunit=1,num_units
+                !   if(units(nunit).eq.ne0) then
+                !     found=.true.
+                !     exit
+                !   endif
+                !   Ppl = pleural_press(nunit)
+                ! enddo
+                ! if(.NOT.found) then
+                !   print *,"Warning --> unit not found for element",ne
+                !   stop
+                ! endif
+                call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
 
                 Lin=elem_field(ne_length,ne0)
                 Lout=elem_field(ne_length,ne1)
@@ -374,20 +374,20 @@ gamma = 0.327_dp !=1.85/(4*sqrt(2))
           y_cap=node_xyz(2,elem_nodes(1,ne))
           z_cap=node_xyz(3,elem_nodes(1,ne))
           
-          ! (MS) added: use unit's Ppl at FRC 
-          found=.FALSE.
-          do nunit=1,num_units
-            if(units(nunit).eq.ne0) then
-              found=.true.
-              exit
-            endif
-            Ppl = pleural_press(nunit)
-          enddo
-          if(.NOT.found) then
-            print *,"Warning --> unit not found for element",ne
-            stop
-          endif
-          ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+          ! ! (MS) added: use unit's Ppl at FRC 
+          ! found=.FALSE.
+          ! do nunit=1,num_units
+          !   if(units(nunit).eq.ne0) then
+          !     found=.true.
+          !     exit
+          !   endif
+          !   Ppl = pleural_press(nunit)
+          ! enddo
+          ! if(.NOT.found) then
+          !   print *,"Warning --> unit not found for element",ne
+          !   stop
+          ! endif
+          call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
           
           Lin=elem_field(ne_length,ne0)
           Lout=elem_field(ne_length,ne1)
@@ -997,8 +997,8 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         ny=depvar_at_node(np,0,1)
         
         ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
-        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
-        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+        ! call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
 
         Pblood=prq_solution(ny,1) !Pa
         Ptm=Pblood+Ppl     ! Pa
@@ -1100,8 +1100,8 @@ subroutine calc_press_area(grav_vect,KOUNT,depvar_at_node,prq_solution,&
         ny=depvar_at_node(np,0,1)
 
         ! (MS) added: get average Ppl of units around the starting node elem_nodes(1,ne) 
-        call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
-        ! call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
+        ! call average_ppl(elem_nodes(1,ne),dist,Ppl) ! given ne, find all units within dist mm and average their Ppl
+        call calculate_ppl(elem_nodes(1,ne),grav_vect,mechanics_parameters,Ppl) !(MS): original line; linearly distributed based on node's height
 
         Pblood=prq_solution(ny,1) !Pa
         Ptm=Pblood+Ppl     ! Pa

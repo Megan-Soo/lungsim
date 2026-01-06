@@ -9,8 +9,9 @@ void export_cubic_lagrange_2d_c(const char *EXFILE, int *exfile_len,
 void export_1d_elem_field_c(int *ne_field, const char *EXELEMFILE, int *EXELEMFILE_LEN,
                             const char *group_name, int *group_name_len,
 			    const char *field_name, int *field_name_len );
+void export_1d_elem_ipfiel_c(int *ne_field, const char *IPELEMFILE, int *IPELEMFILE_LEN, int *last_elem);
 void export_1d_elem_geometry_c(const char *EXELEMFILE, int *EXELEMFILE_LEN,
-			       const char *name, int *name_len);
+        const char *name, int *name_len);
 void export_elem_geometry_2d_c(const char *EXELEMFILE, int *EXELEMFILE_LEN,
 			       const char *name, int *name_len, int *offset_elem, int *offset_node);
 void export_node_field_c(int *nj_field, const char *EXNODEFIELD, int *EXNODEFIELD_LEN,
@@ -60,6 +61,13 @@ void export_1d_elem_field(int ne_field, const char *EXELEMFILE,
 
   export_1d_elem_field_c(&ne_field, EXELEMFILE, &filename_len, group_name,
 			 &group_name_len, field_name, &field_name_len);
+}
+
+void export_1d_elem_ipfiel(int ne_field, const char *IPELEMFILE, int last_elem)
+{
+  int filename_len = strlen(IPELEMFILE);
+
+  export_1d_elem_ipfiel_c(&ne_field, IPELEMFILE, &filename_len, &last_elem);
 }
 
 void export_1d_elem_geometry(const char *EXELEMFILE, const char *name)

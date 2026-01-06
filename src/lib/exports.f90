@@ -37,6 +37,7 @@ module exports
        export_triangle_elements, &
        export_triangle_nodes, &
        export_1d_elem_field, &
+       export_1d_elem_ipfiel, & ! (MS) added subroutine
        export_data_geometry
 
 contains
@@ -385,6 +386,101 @@ contains
     close(10)
 
   end subroutine export_1d_elem_field
+
+!##############################################################################
+! (MS) added: directly export ipfiel file (main purpose for radius field)
+! & indicate terminal elements to avoid using mapping txt file
+
+  subroutine export_1d_elem_ipfiel(ne_field, IPELEMFILE,last_elem)
+
+!!! Parameters
+    integer, intent(in) :: ne_field
+    character(len=MAX_FILENAME_LEN), intent(in) :: IPELEMFILE
+    integer, intent(in) :: last_elem
+
+!!! Local Variables
+    integer :: ne, ne0,n_elems,kount=0
+    integer, allocatable :: mask_arr(:)
+    logical :: CHANGED, mapped=.false.,filtered=.false.,terminal=.false.
+    character(len=300) :: writefile
+    character(len=60) :: sub_name
+
+    ! --------------------------------------------------------------------------
+
+    sub_name = 'export_1d_elem_ipfiel'
+    call enter_exit(sub_name,1)
+
+    if(last_elem.ne.0) then ! option to only export up to a certain element
+      n_elems = last_elem
+    else
+      n_elems = num_elems
+    end if
+
+    if(allocated(mapped_elems))then ! check if geometry.filter_elems_in_ply was used
+      mapped=.true.
+      ! create mask array of upstream elements
+      allocate(mask_arr(num_elems))
+      mask_arr(:) = 0 ! initialise to zero
+      do ne=1,num_elems
+         if(ne.eq.mapped_elems(ne))then
+            ne0 = elem_cnct(-1,1,ne) ! get upstream element, the terminal arterial elem
+            mask_arr(ne0) = ne0
+         endif
+      enddo
+    endif
+
+    if(index(IPELEMFILE, ".ipfiel")> 0) then !full filename is given
+       writefile = IPELEMFILE
+    else ! need to append the correct filename extension
+       writefile = trim(IPELEMFILE)//'.ipfiel'
+    endif
+
+    open(10, file=writefile, status='replace')
+
+    write(10,'( '' CMISS Version 1.21 ipfiel File Version 3'')')
+    !**         write the elements
+    write(10,'( '' Heading:'' )') ! (MS) don't rly need. retained for consistency
+    CHANGED=.TRUE. !initialise to force output of element information
+    do ne=1,n_elems
+       if(ne>1) THEN
+          CHANGED=.FALSE.
+       endif
+       if(CHANGED)THEN
+          write(10,'(" The number of elements is [",I12,"]: ",I0)') n_elems
+          ! I12 gives fixed-width, right-aligned field inside brackets
+          ! I0 prints int w/ no leading spaces after colon
+       endif
+
+       ! check if it's a filtered capillary element
+       if(mapped.and.ne.eq.mask_arr(ne)) then
+           filtered=.true.
+         else
+           filtered=.false.
+         endif
+
+       ! check if it's a terminal element
+       if(elem_cnct(1,0,ne).eq.0)then ! this is a terminal element
+         terminal=.true.
+       else
+         terminal=.false.
+       endif
+
+       ! Label each element accordingly
+       if(filtered .and. terminal) then
+         write(10,'(" Filtered Terminal Element number:",I12)') elems(ne)
+       elseif(filtered .and. .not. terminal) then
+         write(10,'(" Filtered Element number:",I12)') elems(ne)
+       elseif(.not. filtered .and. terminal) then
+         write(10,'(" Terminal Element number:",I12)') elems(ne)
+       else
+         write(10,'(" Element number:",I12)') elems(ne)
+       endif
+       write(10,'(" The field variable value is [",ES12.5,"]: ",F7.4)') 0.0d0, elem_field(ne_field,ne)
+       write(10,'()') ! blank line between elements
+    enddo !no_nelist (ne)
+    close(10)
+
+  end subroutine export_1d_elem_ipfiel
 
 !
 !##############################################################################

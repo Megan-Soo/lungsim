@@ -142,7 +142,7 @@ contains
          fun_co2,fdash,p_cap_co2,p_cap_o2,p_art_co2_last, &
          p_art_o2_last,p_ven_co2_last,p_ven_o2_last,Q_total,V_total, &
          target_c_ven_co2,target_c_ven_o2,v_q,p_alv_o2,p_alv_co2
-    
+    logical::healthy=.true. ! (MS) added
     real(dp),parameter :: m = 0.02386_dp, tol = 1.0e-6_dp
     logical :: continue
     character(len=60) :: sub_name
@@ -166,10 +166,10 @@ contains
           if(dabs(v_q) .le. 1.0e-3_dp)then ! no ventilation; cap CO2 == venous CO2
              p_cap_co2 = p_ven_co2
           else                             ! calculate the steady-state PCO2
-             fun_co2 = function_co2(v_q,p_cap_co2,p_ven_co2)
-             fdash = fdash_co2(v_q,p_cap_co2)
+             fun_co2 = function_co2(v_q,p_cap_co2,p_ven_co2) ! (MS): init fun_co2 per unit based on unit's V/Q, atm press, H2O press, p_cap_co2, p_ven_co2
+             fdash = fdash_co2(v_q,p_cap_co2) !(MS): init fdash_co2 per unit based on unit's V/Q and p_cap_co2
              K=0
-             do while(dabs(fun_co2).ge.1.0e-4_dp.and.(k.LT.200))
+             do while(dabs(fun_co2).ge.1.0e-4_dp.and.(k.LT.200)) ! (MS): iter p_cap_co2 until fun_co2 converges (& update fdash accordingly)
                 K=K+1
                 p_cap_co2 = p_cap_co2 - fun_CO2/fdash
                 fun_co2 = function_co2(v_q,p_cap_co2,p_ven_co2)
@@ -206,10 +206,10 @@ contains
        p_alv_co2=p_alv_co2/elem_field(ne_Vdot,1)
 
 !!! calculate the partial pressure of pulmonary arterial CO2:
-       p_art_co2 = 1/(m*(1-c_art_co2)) ! initialise p_art_co2
+       p_art_co2 = 1/(m*(1-c_art_co2)) ! initialise p_art_co2       
        K=0 !counter
        fun_co2 = m*p_art_co2/(1+m*p_art_co2)-c_art_co2
-       do while (dabs(fun_co2).ge.1.0e-4_dp.and.(k.lt.200))
+       do while (dabs(fun_co2).ge.1.0e-4_dp.and.(k.lt.200)) ! (MS): iter p_art_co2 until fun_co2 converges
           K=K+1
           fdash=m/(1+m*p_art_co2)**2
           p_art_co2 = p_art_co2 - fun_co2/fdash
@@ -221,17 +221,26 @@ contains
        p_ven_co2 = 1/(m*(1-target_c_ven_co2))
        K=0
        fun_co2=m*p_ven_co2/(1+m*p_ven_co2)-target_c_ven_CO2
-       do while (dabs(fun_co2).ge.1.0e-4_dp.and.(k.lt.200))
+       do while (dabs(fun_co2).ge.1.0e-4_dp.and.(k.lt.200)) ! (MS): iter p_ven_co2 untl fun_co2 converges
           K=K+1
           fdash=m/(1+m*p_ven_co2)**2
           p_ven_co2 = p_ven_co2-fun_co2/fdash
           fun_co2 = m*p_ven_co2/(1+m*p_ven_co2)-target_c_ven_co2
        enddo !while
 !!! now have updated values for p_art_co2 and p_ven_co2
-       write(*,'('' Interim PPs:'',4(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2
+      !  write(*,'('' Interim PPs:'',4(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2 ! (MS) edit: commented out
+       write(*,'('' Interim PPs, CO:'',5(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2,(Q_total/1.0e6*60.0) ! (MS) added
 !!! check whether p_ven_co2 and p_art_co2 have converged
        if(counter.gt.1)then
-          if(dabs(p_ven_co2-p_ven_co2_last)/p_ven_co2_last.lt.tol.and. &
+         ! (MS) added: if healthy and ventilation personalised but perfusion not personalised,
+         ! adjust perfusion flow until target p_art_co2 range reached (35-45 mmHg)
+          if(healthy.and.p_art_co2.lt.35.0_dp)then ! arterial P_CO2 below healthy range
+             unit_field(nu_perf,:) = unit_field(nu_perf,:) * 1.1_dp ! increase perfusion across units
+          elseif(healthy.and.p_art_co2.gt.45.0_dp)then
+             unit_field(nu_perf,:) = unit_field(nu_perf,:) * 0.9_dp ! decrease perfusion across units
+         ! (MS) added: end
+         !  if(dabs(p_ven_co2-p_ven_co2_last)/p_ven_co2_last.lt.tol.and. & ! original
+          elseif(dabs(p_ven_co2-p_ven_co2_last)/p_ven_co2_last.lt.tol.and. & ! (MS) edited: changed 'if' to 'elseif'
                dabs(p_art_co2-p_art_co2_last)/p_art_co2_last.lt.tol) then
              continue = .false.
           else
@@ -251,7 +260,9 @@ contains
 
     write(*,'('' Total blood flow ='',F10.1,'' mm3/s,&
          & alveolar ventilation='',F10.1,'' mm3/s'')') Q_total,V_total
-    write(*,'('' Steady-state P_art_CO2 ='',F6.1,'' mmHg,&
+    write(*,'('' Total blood flow ='',F10.1,'' L/min,&
+         & alveolar ventilation='',F10.1,'' L/min'')') Q_total/1.0e6*60,V_total/1.0e6*60 ! (MS) added
+         write(*,'('' Steady-state P_art_CO2 ='',F6.1,'' mmHg,&
          & P_ven_CO2='',F6.1,'' mmHg'')') p_art_co2,p_ven_co2
     write(*,'(''               P_alv_CO2 ='',F6.1,'' mmHg,&
          &  P(A-a)CO2='',F6.1,'' mmHg'')') p_alv_co2,p_alv_co2-p_art_co2

@@ -51,6 +51,26 @@ contains
 
   end subroutine export_1d_elem_field_c
 
+  !!!################################################################
+
+  subroutine export_1d_elem_ipfiel_c(ne_field, IPELEMFILE, filename_len, last_elem) & ! (MS) added
+    bind(C, name="export_1d_elem_ipfiel_c")
+
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use exports, only: export_1d_elem_ipfiel
+    use other_consts, only: MAX_FILENAME_LEN
+    implicit none
+    integer,intent(in) :: ne_field, filename_len, last_elem
+    type(c_ptr), value, intent(in) :: IPELEMFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+
+    call strncpy(filename_f, IPELEMFILE, filename_len)
+
+    call export_1d_elem_ipfiel(ne_field, filename_f, last_elem)
+
+  end subroutine export_1d_elem_ipfiel_c
+
 !!!############################################################################
 
   subroutine export_1d_elem_geometry_c(EXELEMFILE, filename_len, name, name_len) bind(C, name="export_1d_elem_geometry_c")
