@@ -14,10 +14,12 @@ module species_transport
   use gas_exchange
   use indices
   use other_consts
+  use field_utilities
   
   implicit none
 
   !Module parameters
+  real(dp) :: VO2 ! (MS) added mm3/s
 
   !Module types
 
@@ -31,7 +33,10 @@ contains
 !
 !##############################################################################
 !
- subroutine initialise_transport()
+ subroutine initialise_transport(VO2_in)
+
+   real(dp),intent(in) :: VO2_in ! (MS) added: input VO2 based on weight (mm3/s)
+
    !local variables
 
    character(len=60) :: sub_name
@@ -39,6 +44,7 @@ contains
    sub_name = 'initialise_transport'
    call enter_exit(sub_name,1)
 
+   VO2 = VO2_in ! (MS) added: set subject's VO2 (global variable)
    call allocate_memory_speciestrans
 
    select case (model_type)
@@ -69,6 +75,7 @@ contains
 
    !local variables
    real(dp) c_art_o2, c_ven_o2,p_art_co2,p_art_o2, p_ven_co2,p_ven_o2
+   real(dp) VCO2 ! (MS) added mm3/s
 
    character(len=60) :: sub_name
 
@@ -91,9 +98,17 @@ contains
        p_ven_co2=45.0_dp
        p_art_o2=100.0_dp
        p_ven_o2=40.0_dp
-      call steadystate_gasexchange(c_art_o2,c_ven_o2,& ! (MS) edited: uncommented
+      ! call steadystate_gasexchange(c_art_o2,c_ven_o2,& ! (MS) edited: uncommented
+      ! p_art_co2,p_art_o2,149.0_dp,p_ven_co2,p_ven_o2,0.03_dp,&
+      ! 0.8_dp*(260.0_dp*1.0e+3_dp/60.0_dp),260.0_dp*1.0e+3_dp/60.0_dp )
+      VCO2 = 0.8_dp*VO2 ! (MS) added: assuming Respiratory Quotient of 0.8
+      !  p_art_co2=0.0_dp ! (MS) added: intialise with zeros?
+      !  p_ven_co2=0.0_dp
+      !  p_art_o2=0.0_dp
+      !  p_ven_o2=0.0_dp
+      call steadystate_gasexchange(c_art_o2,c_ven_o2,& ! 
       p_art_co2,p_art_o2,149.0_dp,p_ven_co2,p_ven_o2,0.03_dp,&
-      0.8_dp*(260.0_dp*1.0e+3_dp/60.0_dp),260.0_dp*1.0e+3_dp/60.0_dp )
+      VCO2,VO2 )
 
     end select
    call enter_exit(sub_name,2)

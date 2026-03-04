@@ -13,6 +13,7 @@ module gas_exchange
   use indices
   use other_consts
   use precision
+  use field_utilities ! (MS) added: for scale_flow_to_inlet subroutine
 
   implicit none
 
@@ -142,8 +143,10 @@ contains
          fun_co2,fdash,p_cap_co2,p_cap_o2,p_art_co2_last, &
          p_art_o2_last,p_ven_co2_last,p_ven_o2_last,Q_total,V_total, &
          target_c_ven_co2,target_c_ven_o2,v_q,p_alv_o2,p_alv_co2
-    logical::healthy=.true. ! (MS) added
-    real(dp),parameter :: m = 0.02386_dp, tol = 1.0e-6_dp
+    logical::scaleVQ=.true. ! (MS) added: true to scale CO and minute vent until target partial pressures. false to est P_CO2 and P_O2 based on given CO & minute vent.
+    real(dp),parameter :: target_p_art_co2 = 40.0_dp ! (MS) added: target healthy arterial P_CO2 range
+    real(dp),parameter :: target_p_ven_o2 = 45.0_dp ! (MS) added: target healthy arterial P_O2 range
+    real(dp),parameter :: m = 0.06_dp, tol = 1.0e-6_dp ! (MS) edited: original m = 0.02386_dp
     logical :: continue
     character(len=60) :: sub_name
     
@@ -229,15 +232,15 @@ contains
        enddo !while
 !!! now have updated values for p_art_co2 and p_ven_co2
       !  write(*,'('' Interim PPs:'',4(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2 ! (MS) edit: commented out
-       write(*,'('' Interim PPs, CO:'',5(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2,(Q_total/1.0e6*60.0) ! (MS) added
+       write(*,'('' Interim PPs, CO, Valv:'',6(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2,&
+       (Q_total/1.0e6*60.0),(V_total/1.0e6*60.0) ! (MS) added
 !!! check whether p_ven_co2 and p_art_co2 have converged
        if(counter.gt.1)then
          ! (MS) added: if healthy and ventilation personalised but perfusion not personalised,
-         ! adjust perfusion flow until target p_art_co2 range reached (35-45 mmHg)
-          if(healthy.and.p_art_co2.lt.35.0_dp)then ! arterial P_CO2 below healthy range
-             unit_field(nu_perf,:) = unit_field(nu_perf,:) * 1.1_dp ! increase perfusion across units
-          elseif(healthy.and.p_art_co2.gt.45.0_dp)then
-             unit_field(nu_perf,:) = unit_field(nu_perf,:) * 0.9_dp ! decrease perfusion across units
+         ! adjust ventilation flow until target p_art_co2 range reached (35-45 mmHg)
+          if(scaleVQ.and.dabs(p_art_co2-target_p_art_co2)/target_p_art_co2.gt.0.001_dp)then ! arterial P_CO2 below healthy range
+             V_total = p_art_co2/target_p_art_co2*V_total ! adjust total ventilation based on ratio of current to target arterial P_CO2
+             call scale_flow_to_inlet(V_total,'V') ! scale ventilation to new total ventilation
          ! (MS) added: end
          !  if(dabs(p_ven_co2-p_ven_co2_last)/p_ven_co2_last.lt.tol.and. & ! original
           elseif(dabs(p_ven_co2-p_ven_co2_last)/p_ven_co2_last.lt.tol.and. & ! (MS) edited: changed 'if' to 'elseif'
@@ -266,8 +269,8 @@ contains
          & P_ven_CO2='',F6.1,'' mmHg'')') p_art_co2,p_ven_co2
     write(*,'(''               P_alv_CO2 ='',F6.1,'' mmHg,&
          &  P(A-a)CO2='',F6.1,'' mmHg'')') p_alv_co2,p_alv_co2-p_art_co2
-
-!!! Calculate steady state gas exchange for O2
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Calculate steady state gas exchange for O2 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     p_ven_o2_last = p_ven_o2
     counter = 1
     continue = .true.
@@ -328,11 +331,21 @@ contains
 
 
 !!! now have updated values for p_art_o2 and p_ven_o2
+       write(*,'('' Interim PPs, CO, Valv:'',6(f8.3))') p_art_o2,p_ven_o2,p_art_co2,p_ven_co2,&
+         (Q_total/1.0e6*60.0),(V_total/1.0e6*60.0) ! (MS) added
 !!! check whether p_ven_o2 and p_art_o2 have converged
        if(counter.gt.1)then
-          if(abs(p_ven_o2-p_ven_o2_last)/p_ven_o2_last.lt.tol.and. &
+         ! (MS) added: if healthy and ventilation personalised but perfusion not personalised,
+         ! adjust perfusion flow until target p_ven_o2 range reached (35-45 mmHg)
+          if(scaleVQ.and.dabs(p_ven_o2-target_p_ven_o2)/target_p_ven_o2.gt.0.001_dp)then ! arterial P_CO2 below healthy range
+            Q_total = target_p_ven_o2/p_ven_o2*Q_total ! adjust total perfusion based on ratio of current to target venous P_O2
+            call scale_flow_to_inlet(Q_total,'Q') ! scale perfusion to new total perfusion
+         ! (MS) added: end
+          elseif(abs(p_ven_o2-p_ven_o2_last)/p_ven_o2_last.lt.tol.and. &
                abs(p_art_o2-p_art_o2_last)/p_art_o2_last.lt.tol) then
              continue = .false.
+         !  if(abs(p_ven_o2-p_ven_o2_last)/p_ven_o2_last.lt.tol.and. &
+         !      abs(p_art_o2-p_art_o2_last)/p_art_o2_last.lt.tol) then
           else
              if(counter.gt.200) continue = .false. !ARC made this one
              counter=counter+1
@@ -351,7 +364,7 @@ contains
          &  P_ven_O2='',F6.1,'' mmHg'')') p_art_o2,p_ven_o2
     write(*,'(''               P_alv_O2 ='',F6.1,'' mmHg,&
          &  P(A-a)O2='',F6.1,'' mmHg'')') p_alv_o2,p_alv_o2-p_art_o2
-
+    
     do nunit=1,num_units
        ne=units(nunit)
        np=elem_nodes(2,ne)
