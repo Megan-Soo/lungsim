@@ -914,6 +914,7 @@ contains
     real(dp),intent(out) :: err_est
     ! Local variables
     integer :: ne,nunit, unit
+    real(dp) :: scale_factor ! (MS) added 11-Feb-2026
     real(dp) :: alpha,beta,flow_diff,flow_sum,Q,Qinit
     character(len=60) :: sub_name
 
@@ -930,8 +931,23 @@ contains
       ne = units(nunit) !local element number
 
       ! if (elem_nodes(2,ne)== mapped_units(nunit)) then ! if unit in defect region
-      if(mapped_units(nunit).ne.0)then
+      if(allocated(mapped_units).and.mapped_units(nunit).ne.0)then ! added check for allocated array - allows option to run w/o prereq filter_units_in_ply()
          Q = 0.0_dp
+         ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
+         
+         ! Calculate the mean flow into the unit in the time step
+         ! alpha is rate of change of pressure at start node of terminal element
+         alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
+         Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
+         ! beta is rate of change of 'external' pressure, incl muscle and entrance
+         beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
+
+         ! assuming tt reduced flow due to tissue unit having lower compliance,
+         !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
+         scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
+         Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
+               (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
+               exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
       else
          ! Calculate the mean flow into the unit in the time step
          ! alpha is rate of change of pressure at start node of terminal element
