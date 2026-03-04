@@ -6,12 +6,14 @@ contains
 
 !!!###################################################################################
 
-  subroutine initialise_transport_c() bind(C, name="initialise_transport_c")
-
+  subroutine initialise_transport_c(VO2_in) bind(C, name="initialise_transport_c")
+    
+    use arrays,only: dp
     use species_transport, only: initialise_transport
     implicit none
-
-    call initialise_transport
+    real(dp),intent(in) :: VO2_in
+    
+    call initialise_transport(VO2_in)
 
   end subroutine initialise_transport_c
 
