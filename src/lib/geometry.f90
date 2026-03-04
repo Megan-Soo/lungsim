@@ -1212,13 +1212,13 @@ contains
 
 !!!#############################################################################
 
-  subroutine set_rad_upstream_filtered_elem(new_rad)
+  subroutine set_rad_upstream_filtered_elem(scale_factor)
     !*scale_rad_filtered_elems:* prerequisite filter_elems_in_ply
     !                             multiplies radii of filtered elems by scale factor
 
-    real(dp),intent(in) :: new_rad
+    real(dp),intent(in) :: scale_factor
     ! Local variables
-    real(dp):: radius
+    real(dp):: scale
     integer:: ne,ne0
     character(len=60) :: sub_name
 
@@ -1230,18 +1230,16 @@ contains
    do ne = 1,num_elems
       if(ne.eq.mapped_elems(ne))then! (MS): if it's a filtered elem
           ne0 = elem_cnct(-1,1,ne) ! get upstream element
-         !  radius = elem_field(ne_radius,ne0) ! get radius
-         !  radius = radius*scale_factor ! scale radius
           
-          radius = new_rad
-          elem_field(ne_radius,ne0) = radius ! ave radius across whole elem
-          elem_field(ne_radius_in,ne0) = radius ! strained radius into elem
-          elem_field(ne_radius_in0,ne0) = radius ! unstrained radius into elem
-          elem_field(ne_radius_out,ne0) = radius ! strained radius out of elem
-          elem_field(ne_radius_out0,ne0) = radius ! unstrained radius out of elem
+         !  scale = scale_factor
+          elem_field(ne_radius,ne0) = elem_field(ne_radius,ne0)*scale_factor ! ave radius across whole elem
+          elem_field(ne_radius_in,ne0) = elem_field(ne_radius_in,ne0)*scale_factor ! strained radius into elem
+          elem_field(ne_radius_in0,ne0) = elem_field(ne_radius_in0,ne0)*scale_factor ! unstrained radius into elem
+          elem_field(ne_radius_out,ne0) = elem_field(ne_radius_out,ne0)*scale_factor ! strained radius out of elem
+          elem_field(ne_radius_out0,ne0) = elem_field(ne_radius_out0,ne0)*scale_factor ! unstrained radius out of elem
           
           if(ne_vol.gt.0)then
-            elem_field(ne_vol,ne0) = pi*radius**2*elem_field(ne_length,ne0) ! update elem vol
+            elem_field(ne_vol,ne0) = pi*elem_field(ne_radius,ne0)**2*elem_field(ne_length,ne0) ! update elem vol
           endif
       endif
    enddo
