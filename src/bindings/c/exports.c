@@ -63,11 +63,11 @@ void export_1d_elem_field(int ne_field, const char *EXELEMFILE,
 			 &group_name_len, field_name, &field_name_len);
 }
 
-void export_1d_elem_ipfiel(int ne_field, const char *IPELEMFILE, int last_elem)
+void export_1d_elem_ipfiel(int ne_field, const char *IPFIELFILE, int last_elem)
 {
-  int filename_len = strlen(IPELEMFILE);
+  int filename_len = strlen(IPFIELFILE);
 
-  export_1d_elem_ipfiel_c(&ne_field, IPELEMFILE, &filename_len, &last_elem);
+  export_1d_elem_ipfiel_c(&ne_field, IPFIELFILE, &filename_len, &last_elem);
 }
 
 void export_1d_elem_geometry(const char *EXELEMFILE, const char *name)

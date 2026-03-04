@@ -410,9 +410,9 @@ contains
     sub_name = 'export_1d_elem_ipfiel'
     call enter_exit(sub_name,1)
 
-    if(last_elem.ne.0) then ! option to only export up to a certain element
+    if(last_elem.gt.0) then ! option to only export up to a certain element
       n_elems = last_elem
-    else
+    else ! if last_elem given is not positive, export all elements
       n_elems = num_elems
     end if
 
@@ -926,6 +926,10 @@ contains
              !write(10,'('' 4) pressure, field, rectangular cartesian, #Components=1'')')
              !write(10,'(2X,''1.  '')',advance="no")
              !write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             !!Path Resistance (MS)
+             write(10,'('' 4) resistance, field, rectangular cartesian, #Components=1'')')
+             write(10,'(2X,''1.  '')',advance="no")
+             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              !Compliance
              write(10,'('' 5) compliance, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
@@ -959,6 +963,7 @@ contains
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vent,NOLIST)) !Ventilation
           !write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vol,nolist))   !Volume (end expiration)
           !write(10,'(2X,4(1X,F12.6))') (unit_field(nu_press,nolist)) !Pressure
+          write(10,'(2X,4(1X,F12.6))') (elem_field(ne_t_resist,ne)) !Path resistance (MS)
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_comp,nolist))  !Compliance (end exp)
          !  write(10,'(2X,4(1X,F12.6))') (unit_field(nu_pe,nolist))    !Recoil pressure
           write(10,'(2X,4(1X,F12.6))') (pleural_press(nolist))    ! (MS) Ppl(unit) = -Pel(unit)+Palv(unit). Use this instead of recoil pressure.
