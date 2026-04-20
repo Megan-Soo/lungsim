@@ -686,7 +686,7 @@ contains
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
-    real(dp) :: exp_term,lambda,ratio
+    real(dp) :: exp_term,lambda,ratio, exp_term2 ! (MS) added exp_term2
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -703,9 +703,18 @@ contains
       lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
-      unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-            *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
-            *(lambda**2+1.0_dp)/lambda**4)
+      if(lambda.gt.1.15-dp)then ! (MS) added 21-Apr-2026: try applying lin r/s for low acinar vols
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(1.15_dp**2-1.0_dp)**2) ! exp term at lambda=1.15
+         unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
+               *(1.15_dp**2-1.0_dp)**2/1.15_dp**2+(3.0_dp*a+b) &
+               *(1.15_dp**2+1.0_dp)/1.15_dp**4) ! compliance at lambda=1.15
+                
+         unit_field(nu_comp,nunit) = 0.17*cc+2*(lambda-1)*(unit_field(nu_comp,nunit)-0.17*cc) ! apply linear r/s at v low acinar volumes to compliance at lambda=1.15
+      else
+         unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
+               *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
+               *(lambda**2+1.0_dp)/lambda**4)
+      endif
       unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
       ! add the chest wall (proportionately) in parallel
       ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
@@ -933,21 +942,21 @@ contains
       ! if (elem_nodes(2,ne)== mapped_units(nunit)) then ! if unit in defect region
       if(allocated(mapped_units).and.mapped_units(nunit).ne.0)then ! added check for allocated array - allows option to run w/o prereq filter_units_in_ply()
          Q = 0.0_dp
-         ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
+         ! ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
          
-         ! Calculate the mean flow into the unit in the time step
-         ! alpha is rate of change of pressure at start node of terminal element
-         alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
-         Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
-         ! beta is rate of change of 'external' pressure, incl muscle and entrance
-         beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
+         ! ! Calculate the mean flow into the unit in the time step
+         ! ! alpha is rate of change of pressure at start node of terminal element
+         ! alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
+         ! Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
+         ! ! beta is rate of change of 'external' pressure, incl muscle and entrance
+         ! beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
 
-         ! assuming tt reduced flow due to tissue unit having lower compliance,
-         !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
-         scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
-         Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
-               (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
-               exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
+         ! ! assuming tt reduced flow due to tissue unit having lower compliance,
+         ! !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
+         ! scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
+         ! Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
+         !       (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
+         !       exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
       else
          ! Calculate the mean flow into the unit in the time step
          ! alpha is rate of change of pressure at start node of terminal element
