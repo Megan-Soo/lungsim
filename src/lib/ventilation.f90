@@ -72,7 +72,6 @@ contains
     real(dp) :: sum_tidal             ! sum of inspired volume  (mm^3)
     real(dp) :: Texpn                 ! time for expiration (s)
     real(dp) :: Tinsp                 ! time for inspiration (s)
-    real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
@@ -153,7 +152,6 @@ contains
 !!! distribute the initial tissue unit volumes along the gravitational axis.
     !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
    !  undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
-    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added: FRC fed into model is segmented volume of imaged lungs.
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
 
@@ -167,7 +165,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-    call tissue_compliance(chest_wall_compliance,undef)
+    call tissue_compliance
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -255,7 +253,7 @@ contains
                chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol, &
                Pcw,pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current, &
                pptrans,press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei, &
-               sum_expid,sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr, &
+               sum_expid,sum_tidal,texpn,time,tinsp,ttime,WOBe,WOBr, &
                WOBe_insp,WOBr_insp,WOB_insp,expiration_type, &
                dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
           
@@ -366,13 +364,13 @@ contains
        chestwall_restvol,dt,err_tol,init_vol,last_vol,current_vol,Pcw, &
        pmus_factor_ex,pmus_factor_in,pmus_step,p_mus,ppl_current,pptrans, &
        press_in_total,prev_flow,ptrans_frc,sum_dpmus,sum_dpmus_ei,sum_expid, &
-       sum_tidal,texpn,time,tinsp,ttime,undef,WOBe,WOBr,WOBe_insp,WOBr_insp, &
+       sum_tidal,texpn,time,tinsp,ttime,WOBe,WOBr,WOBe_insp,WOBr_insp, &
        WOB_insp,expiration_type,dpmus,converged,iter_step,Pcw_ei,WOBr_ms)
 
     integer,intent(in) :: num_itns
     real(dp),intent(in) :: chest_wall_compliance,chestwall_restvol,dt, &
          err_tol,init_vol,pmus_factor_ex,pmus_factor_in,pmus_step, &
-         press_in_total,ptrans_frc,texpn,time,tinsp,ttime,undef
+         press_in_total,ptrans_frc,texpn,time,tinsp,ttime
     real(dp),intent(inout):: pptrans, Pcw_ei, WOBr_ms ! (MS) edited: made pptrans (inout) instead of (in)
     real(dp) :: last_vol,current_vol,Pcw,ppl_current,prev_flow,p_mus, &
          sum_dpmus,sum_dpmus_ei,sum_expid,sum_tidal,WOBe,WOB_insp,WOBe_insp, &
@@ -427,7 +425,7 @@ contains
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
+    call tissue_compliance ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -672,16 +670,14 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef)
+  subroutine tissue_compliance
 
-    real(dp), intent(in) :: chest_wall_compliance,undef
     ! Local variables
     integer :: ne,nunit
     real(dp),parameter :: a = 0.433_dp
     real(dp),parameter :: b = -0.611_dp
     real(dp),parameter :: cc = 2500.0_dp
-    real(dp) :: a_pe, b_pe, cc_pe ! (MS) added
-    real(dp) :: exp_term,lambda,ratio
+    real(dp) :: exp_term,lambda,ratio, thresh, exp_term2 ! (MS) added thresh and exp_term2 for linear compliance at low lambda
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -691,18 +687,29 @@ contains
 
     !.....dV/dP=1/[(1/2h^2).c/2.(3a+b)exp().(4h(h^2-1)^2)+(h^2+1)/h^2)]
 
+    thresh = 1.15_dp ! (MS) added: threshold for lambda below which compliance is linearised 
+
     do nunit = 1,num_units
        ne = units(nunit)
        !calculate a compliance for the tissue unit
-       ratio = unit_field(nu_vol,nunit)/undef ! ratio V_def/V_undef, ie, V_EI/V_EE
+      !  ratio = unit_field(nu_vol,nunit)/undef ! (MS) edit: commented out
+       ratio = unit_field(nu_vol,nunit)/(refvol*unit_field(nu_vmin,nunit)) ! ratio V_def/V_undef, ie, V_EI/V_EE
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
        exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
-       unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-            *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
-            *(lambda**2+1.0_dp)/lambda**4)
-       unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-       ! add the chest wall (proportionately) in parallel
+       if(lambda.lt.thresh)then
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2)
+         unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
+               *(thresh**2-1.0_dp)**2/thresh**2+(3.0_dp*a+b) &
+               *(thresh**2+1.0_dp)/thresh**4) ! compliance at lambda=threshold
+         unit_field(nu_comp,nunit) = (0.17*cc+2.0_dp*(lambda-1.0_dp)*(unit_field(nu_comp,nunit)-0.17*cc)) ! linear compliance for lambda<threshold
+       else
+         unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
+               *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
+               *(lambda**2+1.0_dp)/lambda**4)
+         unit_field(nu_comp,nunit) = (refvol*unit_field(nu_vmin,nunit))/unit_field(nu_comp,nunit) ! V/P
+       endif
+         ! add the chest wall (proportionately) in parallel
        unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
             +1.0_dp/(chest_wall_compliance/dble(num_units)))
        !estimate an elastic recoil pressure for the unit
