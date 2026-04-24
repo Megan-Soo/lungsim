@@ -853,11 +853,7 @@ contains
              write(10,'('' 9) max volume, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
              write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
-             !Pathway resistance (MS)
-             write(10,'('' 9) path resistance, field, rectangular cartesian, #Components=1'')')
-             write(10,'(2X,''1.  '')',advance="no")
-             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
-            endif !FIRST_NODE
+          endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
           do nj=1,3
@@ -871,7 +867,6 @@ contains
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vt,nolist))    !Tidal volume
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmin,nolist))    !Min volume (MS)
           write(10,'(2X,4(1X,F12.6))') (unit_field(nu_vmax,nolist))    !Max volume (MS)
-          write(10,'(2X,4(1X,F12.6))') (node_field(nj_aw_press,np)/unit_field(nu_vent,nolist)) ! (MS) Pathway resistance (Pa/mm3/s). elem_field(ne_resist,ne) and elem_field(ne_t_resist,ne) seem to be the same.
           FIRST_NODE=.FALSE.
           np_last=np
        enddo !nolist (np)

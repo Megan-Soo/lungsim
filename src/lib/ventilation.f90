@@ -76,7 +76,7 @@ contains
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
-    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn, max_resis ! (MS) added
+    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -226,7 +226,6 @@ contains
           WOBt = 0.0_dp ! (MS) added: reset WOBt for each new breath cycle
           comp_dyn = 0.0_dp ! (MS) added: reset comp_dyn for each new breath cycle
           work_per_litre = 0.0_dp ! (MS) added: reset work_per_litre for each new breath cycle
-          max_resis = 0.0_dp ! (MS) added: reset max_resis for each new breath cycle
 
           ! (MS) reset these variables for each new breath cycle
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
@@ -293,8 +292,6 @@ contains
             vt_ee = current_vol-init_vol
           endif
 
-          ! (MS) added 24-Nov-2025
-          max_resis = max(max_resis,elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp) !track max resistance
        enddo !while time<endtime
        
 !!!....check whether simulation continues
@@ -344,8 +341,6 @@ contains
    !  (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
     comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
     ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
-    write(*,'('' Max Raw = '',F10.2,'' cmH/L.s'')') &
-    max_resis
    
     print * ! new line
 
