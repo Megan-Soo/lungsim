@@ -4433,16 +4433,15 @@ contains
 
 !!!#############################################################################
 
-  subroutine define_init_volume(FRC, FIELDFILE)
+  subroutine define_init_volume(FIELDFILE)
     !*define_init_volume:* reads in a volume field associated with a
     ! terminal unit and assigns initial volume information to each unit
 
     character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
-    real(dp), intent(in) ::  FRC
 
     !     Local Variables
-    integer :: ierror,iostat,ne_read,ne,num_elements,nunit,kount
-    real(dp) :: volume_estimate, volume_of_tree, factor_adjust, total_volume
+    integer :: ierror,ne_read,ne,num_elements,nunit,kount
+    real(dp) :: volume_estimate, volume_of_tree
     character(LEN=132) :: ctemp1
     character(len=250) :: readfile
     character(len=60) :: sub_name
@@ -4454,11 +4453,6 @@ contains
 
     volume_estimate = 1.0_dp
     volume_of_tree = 0.0_dp
-    
-    ! Convert FRC (character) to total_volume (real)
-    total_volume = FRC
-    total_volume = total_volume * 1.0e+6_dp ! convert from L to mm3
-    print *, "FRC volume in mm3:", total_volume ! this is ok
 
     if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
        readfile = FIELDFILE(1:250)
@@ -4515,9 +4509,9 @@ contains
     enddo
 
     write(*,'('' Number of elements is '',I5)') num_elems
-    write(*,'('' Initial volume is '',F6.2,'' L'')') total_volume/1.0e+6_dp
+    write(*,'('' Initial volume is '',F6.2,'' L'')') sum(unit_field(nu_vol,:))/1.0e+6_dp
     write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
-    write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (total_volume-volume_of_tree)/1.0e+3_dp
+    write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (sum(unit_field(nu_vol,:))-volume_of_tree)/1.0e+3_dp
     write(*,'('' Total initial volume of units: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
 
     call enter_exit(sub_name,2)

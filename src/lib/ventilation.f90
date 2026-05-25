@@ -20,8 +20,7 @@ module ventilation
   
   implicit none
   !Module parameters
-  real(dp) :: FRC         ! (L)
-  integer :: Gdirn                  ! 1(x), 2(y), 3(z); upright lung
+
   real(dp) :: chest_wall_compliance ! constant compliance of chest wall
   real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
   real(dp) :: press_in              ! constant pressure at entry to model (Pa)
@@ -76,6 +75,8 @@ contains
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
     real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
+   !  character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
+   !  character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -135,6 +136,7 @@ contains
     allocate(time_sample(num_samples))
     time_sample(1:num_samples) = 0.0_dp
     T_sample = T_interval/num_samples ! Timestep for sampling
+   !  T_sample = 0.404 ! timestep for EXAM5332_10phases MoCoLoR
     row = 0 ! initialise row
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
@@ -268,6 +270,8 @@ contains
           t_k = k * T_sample      ! Compute the corresponding sample time
           if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
             row = row+1 ! update the row to store value
+            ! write(writefile, '(A,I0)') 'results/Exam5332/terminal_', row+1 ! start from phase 2. phase 1 is frc.
+            ! call export_terminal_solution(writefile,name)
             time_sample(row) = ttime! store timestamp 
             transpulm_press(row) = pptrans/98.0665_dp
             pleural_press(row) = ppl_current/98.0665_dp
@@ -695,10 +699,12 @@ contains
       !  ratio = unit_field(nu_vol,nunit)/undef ! (MS) edit: commented out
        ratio = unit_field(nu_vol,nunit)/(refvol*unit_field(nu_vmin,nunit)) ! ratio V_def/V_undef, ie, V_EI/V_EE
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2) ! (MS) edited: commented out
+      !  exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**4) ! (MS) edited: want to lower the thresh where compliance plateaus
 
        if(lambda.lt.thresh)then
-         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2)
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2) ! (MS) edited: commented out
+         ! exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**4) ! (MS) edited: want to lower the thresh where compliance plateaus
          unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
                *(thresh**2-1.0_dp)**2/thresh**2+(3.0_dp*a+b) &
                *(thresh**2+1.0_dp)/thresh**4) ! compliance at lambda=threshold
@@ -1139,20 +1145,17 @@ end subroutine calculate_wobr
 
 !!!#############################################################################
 
-  subroutine read_params_evaluate_flow(FRC_in, T_interval_in, Gdirn_in, press_in_in, i_to_e_ratio_in,&
+  subroutine read_params_evaluate_flow(T_interval_in, press_in_in, i_to_e_ratio_in,&
    refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in)
    
-   integer,intent(in)::Gdirn_in
-   real(dp),intent(in)::FRC_in, T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
+   real(dp),intent(in):: T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
                            volume_target_in,pmus_step_in,chest_wall_compliance_in
    character(len=60) :: sub_name
 
    sub_name = 'read_params_evaluate_flow'
    call enter_exit(sub_name,1)
 
-   FRC = FRC_in
    T_interval = T_interval_in
-   Gdirn = Gdirn_in
    press_in = press_in_in
    i_to_e_ratio = i_to_e_ratio_in
    refvol = refvol_in

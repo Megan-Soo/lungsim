@@ -41,7 +41,7 @@ contains
 
 !###################################################################################
 
-  subroutine read_params_evaluate_flow_c(FRC, T_interval, Gdirn, press_in, i_to_e_ratio,&
+  subroutine read_params_evaluate_flow_c(T_interval, press_in, i_to_e_ratio,&
                                         refvol, volume_target, pmus_step, chest_wall_compliance)&
                                         bind(C, name='read_params_evaluate_flow_c')
     use iso_c_binding, only: c_ptr
@@ -49,11 +49,10 @@ contains
     use ventilation, only: read_params_evaluate_flow
     implicit none
 
-    integer,intent(inout) :: Gdirn
-    real(dp),intent(inout) :: FRC, T_interval, press_in, i_to_e_ratio, refvol, volume_target,&
+    real(dp),intent(inout) :: T_interval, press_in, i_to_e_ratio, refvol, volume_target,&
                           pmus_step, chest_wall_compliance
 
-    call read_params_evaluate_flow(FRC, T_interval, Gdirn, press_in, i_to_e_ratio, refvol,&
+    call read_params_evaluate_flow(T_interval, press_in, i_to_e_ratio, refvol,&
                                   volume_target, pmus_step, chest_wall_compliance)
 
   end subroutine read_params_evaluate_flow_c
