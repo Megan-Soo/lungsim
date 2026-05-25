@@ -4509,9 +4509,9 @@ contains
     enddo
 
     write(*,'('' Number of elements is '',I5)') num_elems
-    write(*,'('' Initial volume is '',F6.2,'' L'')') sum(unit_field(nu_vol,:))/1.0e+6_dp
+    write(*,'('' Initial volume is '',F6.2,'' L'')') (sum(unit_field(nu_vol,:))+volume_of_tree)/1.0e+6_dp
     write(*,'('' Deadspace volume is '',F6.1,'' mL'')') volume_of_tree/1.0e+3_dp
-    write(*,'('' Respiratory volume: '',F6.1,'' mL'')') (sum(unit_field(nu_vol,:))-volume_of_tree)/1.0e+3_dp
+    write(*,'('' Respiratory volume: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
     write(*,'('' Total initial volume of units: '',F6.1,'' mL'')') sum(unit_field(nu_vol,:))/1.0e+3_dp
 
     call enter_exit(sub_name,2)
