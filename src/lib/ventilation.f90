@@ -74,7 +74,7 @@ contains
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
-    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
+    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn, max_resis, min_resis ! (MS) added
    !  character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
    !  character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
 
@@ -136,7 +136,7 @@ contains
     allocate(time_sample(num_samples))
     time_sample(1:num_samples) = 0.0_dp
     T_sample = T_interval/num_samples ! Timestep for sampling
-   !  T_sample = 0.404 ! timestep for EXAM5332_10phases MoCoLoR
+   !  T_sample = 0.2403 ! timestep for EXAM5332_10phases MoCoLoR
     row = 0 ! initialise row
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
@@ -226,6 +226,8 @@ contains
           WOBt = 0.0_dp ! (MS) added: reset WOBt for each new breath cycle
           comp_dyn = 0.0_dp ! (MS) added: reset comp_dyn for each new breath cycle
           work_per_litre = 0.0_dp ! (MS) added: reset work_per_litre for each new breath cycle
+          max_resis = 0.0_dp ! (MS) added: reset max resistance for each new breath cycle
+          min_resis = 1.0e+9_dp ! (MS) added: reset min resistance for each new breath cycle
 
           ! (MS) reset these variables for each new breath cycle
           vt_ee = current_vol-init_vol ! (MS) added: initialise Tidal Vol at EE to current vol at End Expiration of this breath cycle
@@ -270,13 +272,14 @@ contains
           t_k = k * T_sample      ! Compute the corresponding sample time
           if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
             row = row+1 ! update the row to store value
-            ! write(writefile, '(A,I0)') 'results/Exam5332/terminal_', row+1 ! start from phase 2. phase 1 is frc.
+            ! write(writefile, '(A,I0)') 'results/001_10phases/terminal_', row+1 ! start from phase 2. phase 1 is frc.
             ! call export_terminal_solution(writefile,name)
             time_sample(row) = ttime! store timestamp 
             transpulm_press(row) = pptrans/98.0665_dp
             pleural_press(row) = ppl_current/98.0665_dp
             muscle_press(row) = p_mus/98.0665_dp
             tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
+            unit_field(nu_vent,:) = unit_field(nu_vt,:)/t_k
              do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
                 unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
                 unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
@@ -292,6 +295,13 @@ contains
           else ! Expiratory limb
             ! Update variables
             vt_ee = current_vol-init_vol
+          endif
+
+          if(elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp.gt.max_resis)then
+             max_resis = elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp
+          endif
+          if(elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp.lt.min_resis)then
+             min_resis = elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp
           endif
 
        enddo !while time<endtime
@@ -311,7 +321,7 @@ contains
    !  call calculate_wobe(Pcw_ei, ppl_ei, vt_ei-vt_ee, WOBe_ms) ! same value as below
     call calculate_wobe(Pcw_ei, ppl_ei, sum_tidal, WOBe_ms)
 
-    WOBr_ms = WOBr_ms - 0.5_dp * sum_tidal * abs(ppl_ei+ppl_init) ! in Pa.mm3. Final resistive WOB.
+    WOBr_ms = WOBr_ms - 0.5_dp * sum_tidal * abs(ppl_ei+ppl_init) ! in Pa.mm3. Final resistive WOB = Whole area under curve (WOBr_ms) - trapezium area min and max Ppl points of the breath cycle curve
 
     ! (MS) added: calculate total Work of Breathing (WOBt)
     WOBt = WOBe_ms + WOBr_ms ! in mm3.Pa
@@ -343,6 +353,8 @@ contains
    !  (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
     comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
     ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
+    write(*,'('' Max Resistance = '',F10.2,'' cmH2O.s/L'')') max_resis
+    write(*,'('' Min Resistance = '',F10.2,'' cmH2O.s/L'')') min_resis
    
     print * ! new line
 
@@ -699,25 +711,25 @@ contains
       !  ratio = unit_field(nu_vol,nunit)/undef ! (MS) edit: commented out
        ratio = unit_field(nu_vol,nunit)/(refvol*unit_field(nu_vmin,nunit)) ! ratio V_def/V_undef, ie, V_EI/V_EE
        lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2) ! (MS) edited: commented out
-      !  exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**4) ! (MS) edited: want to lower the thresh where compliance plateaus
+       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
 
        if(lambda.lt.thresh)then
-         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2) ! (MS) edited: commented out
-         ! exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**4) ! (MS) edited: want to lower the thresh where compliance plateaus
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2)
          unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
                *(thresh**2-1.0_dp)**2/thresh**2+(3.0_dp*a+b) &
                *(thresh**2+1.0_dp)/thresh**4) ! compliance at lambda=threshold
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012?
          unit_field(nu_comp,nunit) = (0.17*cc+2.0_dp*(lambda-1.0_dp)*(unit_field(nu_comp,nunit)-0.17*cc)) ! linear compliance for lambda<threshold
        else
          unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
                *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
                *(lambda**2+1.0_dp)/lambda**4)
-         unit_field(nu_comp,nunit) = (refvol*unit_field(nu_vmin,nunit))/unit_field(nu_comp,nunit) ! V/P
+         ! unit_field(nu_comp,nunit) = (refvol*unit_field(nu_vmin,nunit))/unit_field(nu_comp,nunit) ! V/P (MS) edited: commented out. idky we do this?
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012
        endif
-         ! add the chest wall (proportionately) in parallel
-       unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
-            +1.0_dp/(chest_wall_compliance/dble(num_units)))
+      !    ! add the chest wall (proportionately) in parallel
+      !  unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
+      !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
        !estimate an elastic recoil pressure for the unit
             unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
