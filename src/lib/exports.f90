@@ -847,12 +847,12 @@ contains
              !Min volume (MS)
              write(10,'('' 8) min volume, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
-             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
              VALUE_INDEX=VALUE_INDEX+1
              !Max volume (MS)
              write(10,'('' 9) max volume, field, rectangular cartesian, #Components=1'')')
              write(10,'(2X,''1.  '')',advance="no")
-             write(10,'(''Value index='',I1,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
+             write(10,'(''Value index='',I2,'', #Derivatives='',I1)',advance="yes") VALUE_INDEX,0
           endif !FIRST_NODE
           !***      write the node
           write(10,'(1X,''Node: '',I12)') np
