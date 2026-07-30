@@ -28,6 +28,8 @@ module ventilation
   real(dp) :: T_interval            ! the total length of the breath (s)
   real(dp) :: volume_target         ! the target tidal volume (mm^3)
   real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
+  integer :: n_samples             ! number of sampling points across a breath
+  character(len=MAX_FILENAME_LEN) :: pathout ! file path for exporting sampled unit volumes across a cycle (MS)
 
   !Module types
 
@@ -72,11 +74,11 @@ contains
     real(dp) :: Texpn                 ! time for expiration (s)
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
-    integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
+    integer :: k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init, pptrans_ei ! (MS) added
     real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn, max_resis, min_resis ! (MS) added
-   !  character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
-   !  character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
+    character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
+    character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
 
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
@@ -120,22 +122,21 @@ contains
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
     ! (MS) set number of samples you want
-    num_samples = 60
-    allocate(unit_dvdt(num_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
-    unit_dvdt(1:num_samples,1:num_units) = 0.0_dp
-    allocate(unit_dpdt(num_samples,num_units))
-    unit_dpdt(1:num_samples,1:num_units) = 0.0_dp
-    allocate(transpulm_press(num_samples))
-    transpulm_press(1:num_samples) = 0.0_dp
-    allocate(pleural_press(num_samples))
-    pleural_press(1:num_samples) = 0.0_dp
-    allocate(muscle_press(num_samples))
-    muscle_press(1:num_samples) = 0.0_dp
-    allocate(tidal_vol(num_samples))
-    tidal_vol(1:num_samples) = 0.0_dp
-    allocate(time_sample(num_samples))
-    time_sample(1:num_samples) = 0.0_dp
-    T_sample = T_interval/num_samples ! Timestep for sampling
+    allocate(unit_dvdt(n_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
+    unit_dvdt(1:n_samples,1:num_units) = 0.0_dp
+    allocate(unit_dpdt(n_samples,num_units))
+    unit_dpdt(1:n_samples,1:num_units) = 0.0_dp
+    allocate(transpulm_press(n_samples))
+    transpulm_press(1:n_samples) = 0.0_dp
+    allocate(pleural_press(n_samples))
+    pleural_press(1:n_samples) = 0.0_dp
+    allocate(muscle_press(n_samples))
+    muscle_press(1:n_samples) = 0.0_dp
+    allocate(tidal_vol(n_samples))
+    tidal_vol(1:n_samples) = 0.0_dp
+    allocate(time_sample(n_samples))
+    time_sample(1:n_samples) = 0.0_dp
+    T_sample = T_interval/n_samples ! Timestep for sampling
    !  T_sample = 0.2403 ! timestep for EXAM5332_10phases MoCoLoR
     row = 0 ! initialise row
 
@@ -267,25 +268,30 @@ contains
          !  call write_flow_step_results(chest_wall_compliance,init_vol, &
          !       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
 
-          ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
-          k = nint(ttime / T_sample)  ! Find nearest sampling index
-          t_k = k * T_sample      ! Compute the corresponding sample time
-          if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
-            row = row+1 ! update the row to store value
-            ! write(writefile, '(A,I0)') 'results/001_10phases/terminal_', row+1 ! start from phase 2. phase 1 is frc.
-            ! call export_terminal_solution(writefile,name)
-            time_sample(row) = ttime! store timestamp 
-            transpulm_press(row) = pptrans/98.0665_dp
-            pleural_press(row) = ppl_current/98.0665_dp
-            muscle_press(row) = p_mus/98.0665_dp
-            tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
-            unit_field(nu_vent,:) = unit_field(nu_vt,:)/t_k
-             do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
-                unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
-                unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
-             enddo
+          if(pathout.ne.'')then
+            ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
+            k = nint(ttime / T_sample)  ! Find nearest sampling index
+            t_k = k * T_sample      ! Compute the corresponding sample time
+            if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
+               row = row+1 ! update the row to store value
+               ! write(*,'(" Export ",F10.2," s ",I2)') t_k, row+1
+               write(writefile, '(A,I0)') trim(pathout), row+1 ! start from phase 2. phase 1 is frc.
+               call export_terminal_solution(writefile,name)
+               call export_1d_elem_field(6,writefile,name,name)
+               time_sample(row) = ttime! store timestamp 
+               transpulm_press(row) = pptrans/98.0665_dp
+               pleural_press(row) = ppl_current/98.0665_dp
+               muscle_press(row) = p_mus/98.0665_dp
+               tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
+               ! unit_field(nu_vent,:) = unit_field(nu_vt,:)/t_k ! net flow since beginning
+               unit_field(nu_vent,:) = elem_field(ne_Vdot,units(:)) ! flow at this timestep
+               do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
+                  unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
+                  unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
+               enddo
+            endif
           endif
-          
+
           ! (MS) added: Get Ppl at min Tidal Vol (zero flow) & peak Tidal Vol (zero flow)
           if(elem_field(ne_Vdot,1).gt.0.0_dp)then ! Inspiratory limb
             ! Update variables
@@ -1158,10 +1164,12 @@ end subroutine calculate_wobr
 !!!#############################################################################
 
   subroutine read_params_evaluate_flow(T_interval_in, press_in_in, i_to_e_ratio_in,&
-   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in)
+   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in, n_samples_in,filename)
    
    real(dp),intent(in):: T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
                            volume_target_in,pmus_step_in,chest_wall_compliance_in
+   integer, intent(in) :: n_samples_in
+   character(len=*),intent(in) :: filename
    character(len=60) :: sub_name
 
    sub_name = 'read_params_evaluate_flow'
@@ -1174,6 +1182,8 @@ end subroutine calculate_wobr
    volume_target = volume_target_in
    pmus_step = pmus_step_in
    chest_wall_compliance = chest_wall_compliance_in
+   n_samples = n_samples_in
+   pathout = filename
 
    call enter_exit(sub_name,2)
 

@@ -42,18 +42,26 @@ contains
 !###################################################################################
 
   subroutine read_params_evaluate_flow_c(T_interval, press_in, i_to_e_ratio,&
-                                        refvol, volume_target, pmus_step, chest_wall_compliance)&
+                                        refvol, volume_target, pmus_step, chest_wall_compliance,&
+                                        n_samples, EXNODEFILE, filename_len)&
                                         bind(C, name='read_params_evaluate_flow_c')
     use iso_c_binding, only: c_ptr
+    use other_consts, only: MAX_FILENAME_LEN
+    use utils_c, only: strncpy
     use precision
     use ventilation, only: read_params_evaluate_flow
     implicit none
 
     real(dp),intent(inout) :: T_interval, press_in, i_to_e_ratio, refvol, volume_target,&
                           pmus_step, chest_wall_compliance
+    integer, intent(inout) :: n_samples
+    integer, intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: EXNODEFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+    call strncpy(filename_f, EXNODEFILE, filename_len)
 
     call read_params_evaluate_flow(T_interval, press_in, i_to_e_ratio, refvol,&
-                                  volume_target, pmus_step, chest_wall_compliance)
+                                  volume_target, pmus_step, chest_wall_compliance, n_samples, filename_f)
 
   end subroutine read_params_evaluate_flow_c
 
