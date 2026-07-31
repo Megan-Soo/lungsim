@@ -66,4 +66,35 @@ contains
   end subroutine read_params_evaluate_flow_c
 
   !###################################################################################
+
+  function get_num_nodes_c() result(n) bind(C, name="get_num_nodes_c")
+    use iso_c_binding
+    use arrays, only: node_xyz
+    integer(c_int) :: n
+    n = size(node_xyz, 2)
+  end function get_num_nodes_c
+
+  subroutine get_node_xyz_c(xyz_out, n, dim) bind(C, name="get_node_xyz_c")
+    use iso_c_binding
+    use arrays, only: node_xyz
+    integer(c_int), value :: n, dim
+    real(c_double), intent(out) :: xyz_out(dim, n)
+    xyz_out = node_xyz
+  end subroutine get_node_xyz_c
+
+    function get_num_edges_c() result(n) bind(C, name="get_num_edges_c")
+    use iso_c_binding
+    use arrays, only: elem_nodes
+    integer(c_int) :: n
+    n = size(elem_nodes, 2)
+  end function get_num_edges_c
+
+  subroutine get_edges_c(edges_out, n, dim) bind(C, name="get_edges_c")
+    use iso_c_binding
+    use arrays, only: elem_nodes
+    integer(c_int), value :: n, dim
+    integer(c_int), intent(out) :: edges_out(dim, n)
+    edges_out = elem_nodes
+  end subroutine get_edges_c
+
 end module ventilation_c
