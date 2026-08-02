@@ -13,5 +13,10 @@ void get_node_xyz_c(double* xyz_out, int n, int dim);
 
 int get_num_edges_c();
 void get_edges_c(int* edges_out, int n, int dim);
+void get_flow_edges_c(double* flow_out, int n, int dim);
+
+int get_num_terminal_c();
+void get_terminal_c(double* t_out, int n, int dim);
+void get_flow_c(double* f_out, int n, int dim);
 
 #endif /* AETHER_VENTILATION_H */

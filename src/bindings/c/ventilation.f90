@@ -66,7 +66,7 @@ contains
   end subroutine read_params_evaluate_flow_c
 
   !###################################################################################
-
+  ! (MS) added
   function get_num_nodes_c() result(n) bind(C, name="get_num_nodes_c")
     use iso_c_binding
     use arrays, only: node_xyz
@@ -82,7 +82,7 @@ contains
     xyz_out = node_xyz
   end subroutine get_node_xyz_c
 
-    function get_num_edges_c() result(n) bind(C, name="get_num_edges_c")
+  function get_num_edges_c() result(n) bind(C, name="get_num_edges_c")
     use iso_c_binding
     use arrays, only: elem_nodes
     integer(c_int) :: n
@@ -96,5 +96,42 @@ contains
     integer(c_int), intent(out) :: edges_out(dim, n)
     edges_out = elem_nodes
   end subroutine get_edges_c
+
+  subroutine get_flow_edges_c(flow_out, n, dim) bind(C, name="get_flow_edges_c")
+    use iso_c_binding
+    use indices, only: ne_Vdot
+    use arrays, only: elem_field
+    integer(c_int), value :: n, dim
+    real(c_double), intent(out) :: flow_out(dim, n)
+    flow_out(1,:) = elem_field(ne_Vdot, :)
+  end subroutine get_flow_edges_c
+
+  function get_num_terminal_c() result(n) bind(C, name="get_num_terminal_c")
+    use iso_c_binding
+    use arrays, only: num_units
+    integer(c_int) :: n
+    n = num_units
+  end function get_num_terminal_c
+
+  subroutine get_terminal_c(t_out, n , dim) bind(C, name="get_terminal_c")
+    use iso_c_binding
+    use arrays, only: elem_nodes, units, num_units, node_xyz
+    integer(c_int),value :: n, dim
+    real(c_double), intent(out) :: t_out(dim, n)
+    integer :: np, nolist
+    do nolist=1,num_units
+      np=elem_nodes(2,units(nolist))
+      t_out(:,nolist)=node_xyz(:,np)
+    enddo
+  end subroutine get_terminal_c
+
+  subroutine get_flow_c(f_out, n, dim) bind(C, name="get_flow_c")
+    use iso_c_binding
+    use indices, only: nu_vent
+    use arrays, only: unit_field, num_units
+    integer(c_int), value :: n, dim
+    real(c_double), intent(out) :: f_out(dim, n)
+    f_out(1,:) = unit_field(nu_vent,:)
+  end subroutine get_flow_c
 
 end module ventilation_c
