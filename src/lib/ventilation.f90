@@ -1524,16 +1524,79 @@ end subroutine calculate_wobr
     logical :: cont
     ! --------------------------------------------------------------------------
     
-    cont = .true. ! check if continue ventilation
-    if (n .ge. num_brths) then
-       cont = .false.
+    cont = .true.
+   !  if (n .ge. num_brths) then ! check if met num of user-specified breaths !(MS) commented: move into if below
+   !     cont = .false.
        
-    elseif (abs(volume_target) .gt. 1.0e-3_dp) then ! check if target tidal vol met
-       if (abs(100.0_dp*(volume_target-sum_tidal)/volume_target) .gt. 0.1_dp &
+   !  elseif (abs(volume_target) .gt. 1.0e-3_dp) then
+    if (abs(volume_target) .gt. 1.0e-3_dp) then
+       if (abs(100.0_dp*(volume_target-sum_tidal)/volume_target) .gt. 0.1_dp & ! check if target tidal vol met
             .or. (n .lt. 2)) then
           cont = .true.
-       else
-          cont = .false.
+       else ! will end once target tidal vol even if n<num_brths
+         ! (MS) added: move num_brths check here
+         if(n.ge.num_brths)then
+            cont=.false.
+
+            ! ##### add stuff after continue=false in evaluate_vent here. START
+            ! (MS) added: calculate dynamic compliance
+            !  comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp)  ! defined below:
+            comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(pptrans_ei-pptrans)/98.0665_dp)  ! Nov 2025. Pressure diff defined as d_Transpulm Pressure instead of d_Pleural Pressure
+            ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+            ! between points of apparent zero flow at the beginning and end of inspiration.
+
+            ! (MS) added: calculate elastic Work of Breathing (WOBe)
+            !  call calculate_wobe(Pcw_ei, ppl_ei, vt_ei-vt_ee, WOBe_ms) ! same value as below
+            call calculate_wobe
+
+            WOBr_ms = WOBr_ms - 0.5_dp * sum_tidal * abs(ppl_ei+ppl_init) ! in Pa.mm3. Final resistive WOB = Whole area under curve (WOBr_ms) - trapezium area min and max Ppl points of the breath cycle curve
+
+            ! (MS) added: calculate total Work of Breathing (WOBt)
+            WOBt = WOBe_ms + WOBr_ms ! in mm3.Pa
+            WOBt = WOBt * 1.0e-9_dp !* (0.010197/10) * 1.0e-6_dp ! convert 1 Pa.mm3 to 1 cmH2O.L. Then *10 for equivalent of 10 cmH2O.L
+            ! Cabello 2006: "One joule is the energy needed to move 1 l of gas through a 10-cmH2O pressure gradient"
+            
+            call calculate_pob
+
+            call write_end_of_breath
+            
+            ! (MS) added: start.
+            write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') comp_dyn ! Nov 2025
+            ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+            ! between points of apparent zero flow at the beginning and end of inspiration.
+
+            ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
+            write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
+            !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
+            comp_dyn / (init_vol/1.0e+6_dp) ! Nov 2025
+            ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
+            write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
+            !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+            comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
+            write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
+            !  (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
+            comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
+            ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
+            write(*,'('' Max Resistance = '',F10.2,'' cmH2O.s/L'')') max_resis
+            write(*,'('' Min Resistance = '',F10.2,'' cmH2O.s/L'')') min_resis
+            
+            print * ! new line
+
+         !!! Transfer the tidal volume for each elastic unit to the terminal branches,
+         !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
+         !!! normalised flow field for the tree.
+            do nunit = 1,num_units 
+               elem_field(ne_Vdot,units(nunit)) = unit_field(nu_vt,nunit)
+            enddo
+            unit_field(nu_vent,:) = unit_field(nu_vt,:)/(Tinsp+Texpn)
+            call sum_elem_field_from_periphery(ne_Vdot)
+            elem_field(ne_Vdot,1:num_elems) = &
+                  elem_field(ne_Vdot,1:num_elems)/elem_field(ne_Vdot,1)
+            ! ##### add stuff after continue=false in evaluate_vent here. END
+
+         else  ! cont even if converged until meet num user-specified breaths
+            cont = .true.
+         endif
        endif
     endif
   end function ventilation_continue
