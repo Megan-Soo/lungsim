@@ -19,4 +19,9 @@ int get_num_terminal_c();
 void get_terminal_c(double* t_out, int n, int dim);
 void get_flow_c(double* f_out, int n, int dim);
 
+void initialise_vent_c();
+void evaluate_vent_step_c();
+int ventilation_continue_c();
+int breath_continue_c();
+
 #endif /* AETHER_VENTILATION_H */

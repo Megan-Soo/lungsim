@@ -65,7 +65,7 @@ contains
 
   end subroutine read_params_evaluate_flow_c
 
-  !###################################################################################
+!###################################################################################
   ! (MS) added
   function get_num_nodes_c() result(n) bind(C, name="get_num_nodes_c")
     use iso_c_binding
@@ -127,11 +127,69 @@ contains
 
   subroutine get_flow_c(f_out, n, dim) bind(C, name="get_flow_c")
     use iso_c_binding
-    use indices, only: nu_vent
+    use indices, only: nu_vol
     use arrays, only: unit_field, num_units
     integer(c_int), value :: n, dim
     real(c_double), intent(out) :: f_out(dim, n)
-    f_out(1,:) = unit_field(nu_vent,:)
+    f_out(1,:) = unit_field(nu_vol,:)
   end subroutine get_flow_c
 
+!###################################################################################
+ ! (MS) WIP: see if efficient to get in Python environment
+  ! function get_unit_field_shape_c(dim1, dim2) bind(C, name="get_unit_field_shape_c")
+  !   use iso_c_binding
+  !   use ventilation, only: unit_field
+  !   integer(c_int), intent(out) :: dim1, dim2
+  !   dim1 = size(unit_field, 1)
+  !   dim2 = size(unit_field, 2)
+  ! end function
+
+  ! subroutine get_unit_field_c(field_out, d1, d2) bind(C, name="get_unit_field_c")
+  !   use iso_c_binding
+  !   use ventilation, only: unit_field
+  !   integer(c_int), value :: d1, d2
+  !   real(c_double), intent(out) :: field_out(d1, d2)
+  !   field_out = unit_field
+  ! end subroutine get_unit_field_c
+!###################################################################################
+
+  subroutine initialise_vent_c() bind(C, name="initialise_vent_c")
+    use ventilation, only: initialise_vent
+    implicit none
+
+    call initialise_vent()
+
+  end subroutine initialise_vent_c
+
+!###################################################################################
+  
+subroutine evaluate_vent_step_c() bind(C, name="evaluate_vent_step_c")
+  use ventilation, only: evaluate_vent_step
+  implicit none
+  call evaluate_vent_step()
+end subroutine evaluate_vent_step_c
+
+  !###################################################################################
+  
+  function ventilation_continue_c() result(continue_flag) bind(C, name="ventilation_continue_c")
+    use iso_c_binding
+    use ventilation, only: ventilation_continue!, n, num_brths, sum_tidal, volume_target
+    implicit none
+    integer(c_int) :: continue_flag
+
+    continue_flag = merge(1, 0, ventilation_continue())!(n, num_brths, sum_tidal, volume_target))
+
+  end function ventilation_continue_c
+  !###################################################################################
+
+  function breath_continue_c() result(continue_flag) bind(C, name="breath_continue_c")
+    use iso_c_binding
+    use ventilation, only: breath_continue
+    implicit none
+    integer(c_int):: continue_flag
+    continue_flag=merge(1,0,breath_continue())
+  end function breath_continue_c
+
+  !###################################################################################
+  
 end module ventilation_c
