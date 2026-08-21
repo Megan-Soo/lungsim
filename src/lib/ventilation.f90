@@ -153,7 +153,7 @@ contains
     call volume_of_mesh(init_vol,volume_tree)
     
 !!! distribute the initial tissue unit volumes along the gravitational axis.
-    !call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
+    call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
    !  undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
     undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added: FRC fed into model is segmented volume of imaged lungs.
 !!! calculate the total model volume
