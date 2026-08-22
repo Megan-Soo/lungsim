@@ -13,7 +13,7 @@ void define_node_geometry_c(const char *NODEFILE, int *filename_len);
 void define_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
 void define_data_geometry_c(const char *DATAFILE, int *filename_len);
 void import_node_geometry_2d_c(const char *NODEFILE, int *filename_len);
-void filter_units_in_ply_c(void);
+void filter_units_in_ply_c(int *label);
 void filter_elems_in_ply_c(int *terminal_only);
 void set_rad_upstream_filtered_elem_c(double *new_rad);
 void import_ply_triangles_c(const char *ply_file, int *filename_len);
@@ -23,7 +23,6 @@ extern void make_data_grid_c(int *elemlist_len, int elemlist[], int *num_target,
 extern void make_2d_vessel_from_1d_c(int *elemlist_len, int elemlist[]);
 void define_rad_from_file_c(const char *FIELDFILE, int *filename_len, const char *radius_type, int *radius_type_len);
 void define_init_volume_c(double *FRC, const char *FIELDFILE, int *filename_len);
-// void define_label_c(const char *FIELDFILE, int *filename_len);
 int get_local_node_f_c(const char *ndimension, int *dimension_len, const char *np_global, int *np_global_len);
 void define_rad_from_geom_c(const char *order_system, int *order_system_len, double *control_param,
                             const char *start_from, int *start_from_len, double *start_rad,
@@ -87,9 +86,9 @@ void define_data_geometry(const char *DATAFILE)
   define_data_geometry_c(DATAFILE, &filename_len);
 }
 
-void filter_units_in_ply(void)
+void filter_units_in_ply(int label)
 {
-  filter_units_in_ply_c();
+  filter_units_in_ply_c(&label);
 }
 
 void filter_elems_in_ply(int terminal_only)

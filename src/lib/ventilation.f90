@@ -117,6 +117,10 @@ contains
    ! print *, 'Read pmus_step: ', pmus_step
    ! print *, 'Read chess wall compliance: ', chest_wall_compliance
 
+    ! (MS) edit: hardset params
+    COV = 0.1_dp 
+    RMaxMean = 0.8_dp
+    RMinMean = 1.2_dp
     expiration_type = 'active' ! (MS) hardset
    !  print *, 'Set expiration type: ', expiration_type
     call read_params_main(num_brths, num_itns, dt, err_tol)
@@ -152,8 +156,8 @@ contains
     call update_resistance
     call volume_of_mesh(init_vol,volume_tree)
     
-!!! distribute the initial tissue unit volumes along the gravitational axis.
-    call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
+! !!! distribute the initial tissue unit volumes along the gravitational axis.
+!     call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
    !  undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
     undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added: FRC fed into model is segmented volume of imaged lungs.
 !!! calculate the total model volume
@@ -687,6 +691,7 @@ contains
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
     real(dp) :: exp_term,lambda,ratio, exp_term2 ! (MS) added exp_term2
+    real(dp) :: scale_factor !(MS) added: 22-Aug-26
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -719,6 +724,18 @@ contains
       ! add the chest wall (proportionately) in parallel
       ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
       !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
+
+      ! (MS) added: 22-Aug-26 start
+      if(unit_field(nu_label,nunit).eq.1)then ! (MS) label 1 is complete block eg mucus plug
+         scale_factor = 0.75_dp ! (MS) added: assign zero flow
+      elseif(unit_field(nu_label,nunit).eq.2)then ! (MS) less compliant tissue -> minimal flow
+         scale_factor = 0.9_dp
+      else
+         scale_factor = 1.0_dp ! (MS) otherwise, healthy tissue unit
+      endif
+      unit_field(nu_comp,nunit) = scale_factor*unit_field(nu_comp,nunit)
+      ! (MS) added: 22-Aug-26 end
+
       !estimate an elastic recoil pressure for the unit
       unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
@@ -939,37 +956,17 @@ contains
    do nunit = 1,num_units !for each terminal only (with tissue units attached)
       ne = units(nunit) !local element number
 
-      ! if (elem_nodes(2,ne)== mapped_units(nunit)) then ! if unit in defect region
-      if(allocated(mapped_units).and.mapped_units(nunit).ne.0)then ! added check for allocated array - allows option to run w/o prereq filter_units_in_ply()
-         Q = 0.0_dp
-         ! ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
-         
-         ! ! Calculate the mean flow into the unit in the time step
-         ! ! alpha is rate of change of pressure at start node of terminal element
-         ! alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
-         ! Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
-         ! ! beta is rate of change of 'external' pressure, incl muscle and entrance
-         ! beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
+      ! Calculate the mean flow into the unit in the time step
+      ! alpha is rate of change of pressure at start node of terminal element
+      alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
+      Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
+      ! beta is rate of change of 'external' pressure, incl muscle and entrance
+      beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
 
-         ! ! assuming tt reduced flow due to tissue unit having lower compliance,
-         ! !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
-         ! scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
-         ! Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
-         !       (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
-         !       exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
-      else
-         ! Calculate the mean flow into the unit in the time step
-         ! alpha is rate of change of pressure at start node of terminal element
-         alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
-         Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
-         ! beta is rate of change of 'external' pressure, incl muscle and entrance
-         beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
-
-         !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
-         Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
-               (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
-               exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
-      endif 
+      !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
+      Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
+            (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
+            exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
 
       ! (MS) get flow from prev 2 iterations
       unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2

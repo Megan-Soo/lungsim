@@ -261,12 +261,13 @@ contains
 !
 !###################################################################################
 !
-  subroutine filter_units_in_ply_c() bind(C, name="filter_units_in_ply_c")
+  subroutine filter_units_in_ply_c(label) bind(C, name="filter_units_in_ply_c")
 
     use geometry, only: filter_units_in_ply
     implicit none
+    integer,intent(in) :: label
 
-    call filter_units_in_ply()
+    call filter_units_in_ply(label)
 
   end subroutine filter_units_in_ply_c
 

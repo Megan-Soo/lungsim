@@ -229,7 +229,7 @@ contains
     ne_vol_bel = 10
     ! indices for unit_field
     ! num_nu=10 ! (MS) num_nu is number of allocations to make in unit_field. 
-    num_nu=12
+    num_nu=13
     nu_vol=1
     nu_comp=2
     nu_Vdot0=3 ! (MS) current iter unit airflow
@@ -242,6 +242,7 @@ contains
     nu_vent=10
     nu_vmin=11 ! (MS) added
     nu_vmax=12 !(MS) added
+    nu_label=13 ! (MS) added: label units by type of defect
     call enter_exit(sub_name,2)
   end subroutine ventilation_indices
 
@@ -271,8 +272,7 @@ contains
     ne_vd_bel = 7
     ne_vol_bel = 8
     ! indices for unit_field
-    num_nu = 1 ! (MS) edited: changed num_nu from 0 to 1
-    nu_label=1 ! (MS) added
+    num_nu = 0
     
     call enter_exit(sub_name,2)
     

@@ -53,8 +53,6 @@ module geometry
   public reallocate_node_elem_arrays
   public set_initial_volume
   public define_init_volume ! (MS) added subroutine
-!   public define_label ! (MS) added subroutine
-!   public define_label_map ! (MS) added subroutine
   public filter_units_in_ply ! (MS) added subroutine
   public filter_elems_in_ply ! (MS) added subroutine
   public set_rad_upstream_filtered_elem ! (MS) added subroutine
@@ -1115,11 +1113,11 @@ contains
 
 !!!#############################################################################
 
-  subroutine filter_units_in_ply
+  subroutine filter_units_in_ply(label)
     !*filter_units_in_ply:* collects units in current ply surface
 
    use mesh_utilities,only: point_internal_to_surface
-
+    integer,intent(in) :: label
     ! Local variables
     integer:: kount,nunit,ne,np
     logical:: internal
@@ -1130,9 +1128,11 @@ contains
     sub_name = 'filter_units_in_ply'
     call enter_exit(sub_name,1)
 
-   if(allocated(mapped_units))deallocate(mapped_units)
-   allocate(mapped_units(num_units))
-   mapped_units(:) = 0 ! initialise to zero
+   ! if(allocated(mapped_units))deallocate(mapped_units)
+   ! allocate(mapped_units(num_units))
+   ! mapped_units(:) = 0 ! initialise to zero
+   
+   write(*,'(" Fortran found label", I6)') label
 
    kount = 1
    do nunit = 1,num_units
@@ -1141,7 +1141,8 @@ contains
 
       internal = ray_to_origin_internal(num_vertices,triangle,node_xyz(1:3,np),vertex_xyz)
       if(internal)then
-         mapped_units(nunit) = np
+         unit_field(nu_label,nunit) = label
+         ! mapped_units(nunit) = np
          kount = kount + 1
       endif
    enddo
@@ -4162,106 +4163,6 @@ contains
    call enter_exit(sub_name,2)
 
  end subroutine define_init_volume
-
-!!!#############################################################################
- 
-!   subroutine define_label(FIELDFILE)
-!     !*define_label:* reads in a label field associated with terminal nodes of an
-!     ! airway tree and assigns label information to each terminal node
-
-!    character(len=MAX_FILENAME_LEN), intent(in) :: FIELDFILE
-
-!    !     Local Variables
-!    integer :: ierror,iostat,nu_read,nu,total,nunit,kount
-!    character(LEN=132) :: ctemp1
-!    character(len=250) :: readfile
-!    character(len=60) :: sub_name
-
-!     ! --------------------------------------------------------------------------
-
-!     sub_name = 'define_label'
-!     call enter_exit(sub_name,1)
-
-!    if(index(FIELDFILE, ".ipfiel")> 0) then !full filename is given
-!       readfile = FIELDFILE(1:250)
-!    else ! need to append the correct filename extension
-!       readfile = trim(FIELDFILE)//'.ipfiel'
-!    endif    
-   
-!    open(10, file=readfile, status='old')
-
-!    read_number_of_nodes : do ! total SHOULD BE EQUAL TO num_units
-!       read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-!       if(index(ctemp1, "nodes")> 0) then
-!          total = get_final_integer(ctemp1) !return the final integer
-!          exit read_number_of_nodes
-!       endif
-!    end do read_number_of_nodes
-!    print *, '[define_label] num terminal nodes = ', total
-   
-!    nu_read = 0
-!    kount = 0
-!    !.....read the coordinate, derivative, and version information for each node.
-!    read_a_node : do !define a do loop name
-!       !.......read element number
-!       read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-!       if(index(ctemp1, "Node")> 0) then
-!          nu_read = get_final_integer(ctemp1) !get global node number
-!          do nunit=1,total ! (MS) for nunit in range(num_units):
-!             nu=units(nunit)
-!             if (nu_read == nu) then
-!                read(unit=10, fmt="(a)", iostat=ierror) ctemp1
-!                if(index(ctemp1, "value")> 0) then
-!                unit_field(nu_label,nunit) = get_final_real(ctemp1) ! get last real value in string ctemp1
-!                kount = kount+1
-!                endif
-!             endif
-!          enddo
-!       endif
-!       if(kount.ge.num_units) exit read_a_node
-!    end do read_a_node
-
-!    call enter_exit(sub_name,2)
-
-!   end subroutine define_label
-
-!!!#############################################################################
-
-   ! subroutine define_label_map(filename)
-   !    !*define_label_map:* reads in a 2D integer array from a binary file
-   !    ! along with a 1D integer array of metadata (list of row indices where each split iteration begins)
-   !    ! and prints them to the screen (for now)
-
-   !    ! implicit none
-   !    character(len=*), intent(in) :: filename
-   !    integer, allocatable :: arr(:,:)
-   !    integer, allocatable :: metadata(:)
-   !    integer :: nrows, ncols, nmeta
-   !    integer :: iounit=10
-
-   !    open(newunit=iounit, file=filename, access="stream", form="unformatted", &
-   !          action="read", status="old")
-
-   !    ! Read dimensions
-   !    read(iounit) nrows, ncols
-   !    allocate(arr(nrows, ncols))
-
-   !    ! Read array
-   !    read(iounit) arr
-
-   !    ! Read metadata length
-   !    read(iounit) nmeta
-   !    allocate(metadata(nmeta))
-
-   !    ! Read metadata
-   !    if (nmeta > 0) read(iounit) metadata
-
-   !    close(iounit)
-
-   !    print *, "Array:"
-   !    print *, arr
-   !    print *, "Metadata:", metadata
-   ! end subroutine define_label_map
 
 !!!#############################################################################
 
