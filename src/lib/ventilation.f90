@@ -21,8 +21,6 @@ module ventilation
   
   implicit none
   !Module parameters
-  real(dp) :: FRC         ! (L)
-  integer :: Gdirn                  ! 1(x), 2(y), 3(z); upright lung
   real(dp) :: chest_wall_compliance ! constant compliance of chest wall
   real(dp) :: i_to_e_ratio          ! ratio inspiration to expiration time
   real(dp) :: press_in              ! constant pressure at entry to model (Pa)
@@ -161,7 +159,6 @@ contains
 ! !!! distribute the initial tissue unit volumes along the gravitational axis.
 !     call set_initial_volume(gdirn,COV,FRC*1.0e+6_dp,RMaxMean,RMinMean)
    !  undef = refvol * (FRC*1.0e+6_dp-volume_tree)/dble(elem_units_below(1))
-    undef = refvol * (FRC*1.0e+6_dp)/dble(elem_units_below(1)) ! (MS) added: FRC fed into model is segmented volume of imaged lungs.
 !!! calculate the total model volume
     call volume_of_mesh(init_vol,volume_tree)
 
@@ -175,7 +172,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-    call tissue_compliance(chest_wall_compliance,undef)
+    call tissue_compliance
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -446,7 +443,7 @@ contains
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
+    call tissue_compliance ! unit compliances
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -695,9 +692,8 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef)
+  subroutine tissue_compliance
 
-    real(dp), intent(in) :: chest_wall_compliance,undef
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
@@ -707,31 +703,35 @@ contains
 
     ! --------------------------------------------------------------------------
 
-    sub_name = 'update_tissue_compliance'
+    sub_name = 'tissue_compliance'
     call enter_exit(sub_name,1)
 
     !.....dV/dP=1/[(1/2h^2).c/2.(3a+b)exp().(4h(h^2-1)^2)+(h^2+1)/h^2)]
 
-   do nunit=1,num_units
-      ne=units(nunit)
-      !calculate a compliance for the tissue unit
-      ratio = unit_field(nu_vol,nunit)/undef
-      lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-      exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+    thresh = 1.15_dp ! (MS) added: threshold for lambda below which compliance is linearised 
 
-      if(lambda.gt.1.15-dp)then ! (MS) added 21-Apr-2026: try applying lin r/s for low acinar vols
-         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(1.15_dp**2-1.0_dp)**2) ! exp term at lambda=1.15
+    do nunit = 1,num_units
+       ne = units(nunit)
+       !calculate a compliance for the tissue unit
+      !  ratio = unit_field(nu_vol,nunit)/undef ! (MS) edit: commented out
+       ratio = unit_field(nu_vol,nunit)/(refvol*unit_field(nu_vmin,nunit)) ! ratio V_def/V_undef, ie, V_EI/V_EE
+       lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
+       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+
+       if(lambda.lt.thresh)then
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2)
          unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-               *(1.15_dp**2-1.0_dp)**2/1.15_dp**2+(3.0_dp*a+b) &
-               *(1.15_dp**2+1.0_dp)/1.15_dp**4) ! compliance at lambda=1.15
-                
-         unit_field(nu_comp,nunit) = 0.17*cc+2*(lambda-1)*(unit_field(nu_comp,nunit)-0.17*cc) ! apply linear r/s at v low acinar volumes to compliance at lambda=1.15
-      else
+               *(thresh**2-1.0_dp)**2/thresh**2+(3.0_dp*a+b) &
+               *(thresh**2+1.0_dp)/thresh**4) ! compliance at lambda=threshold
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012?
+         unit_field(nu_comp,nunit) = (0.17*cc+2.0_dp*(lambda-1.0_dp)*(unit_field(nu_comp,nunit)-0.17*cc)) ! linear compliance for lambda<threshold
+       else
          unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
                *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
                *(lambda**2+1.0_dp)/lambda**4)
-      endif
-      unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
+         ! unit_field(nu_comp,nunit) = (refvol*unit_field(nu_vmin,nunit))/unit_field(nu_comp,nunit) ! V/P (MS) edited: commented out. idky we do this?
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012
+       endif
       ! add the chest wall (proportionately) in parallel
       ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
       !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
