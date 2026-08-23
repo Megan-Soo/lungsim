@@ -30,6 +30,8 @@ module ventilation
   real(dp) :: T_interval            ! the total length of the breath (s)
   real(dp) :: volume_target         ! the target tidal volume (mm^3)
   real(dp) :: pmus_step             ! change in Ppl for driving flow (Pa)
+  integer :: n_samples             ! number of sampling points across a breath
+  character(len=MAX_FILENAME_LEN) :: pathout ! file path for exporting sampled unit volumes across a cycle (MS)
 
   !Module types
 
@@ -274,19 +276,28 @@ contains
           call write_flow_step_results(chest_wall_compliance,init_vol, &
                current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
 
-          ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
-          k = nint(ttime / T_sample)  ! Find nearest sampling index
-          t_k = k * T_sample      ! Compute the corresponding sample time
-          if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
-            row = row+1 ! update the row to store value
-            time_sample(row) = ttime! store timestamp 
-            transpulm_press(row) = pptrans/98.0665_dp
-            muscle_press(row) = p_mus/98.0665_dp
-            tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
-             do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
-                unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
-                unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
-             enddo
+          if(pathout.ne.'')then
+            ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
+            k = nint(ttime / T_sample)  ! Find nearest sampling index
+            t_k = k * T_sample      ! Compute the corresponding sample time
+            if (abs(ttime - t_k) <= (dt / 2.0)) then ! (MS) Check if the current time is close to a multiple of the sampling interval
+               row = row+1 ! update the row to store value
+               ! write(*,'(" Export ",F10.2," s ",I2)') t_k, row+1
+               write(writefile, '(A,I0)') trim(pathout), row+1 ! start from phase 2. phase 1 is frc.
+               call export_terminal_solution(writefile,name)
+               call export_1d_elem_field(6,writefile,name,name)
+               time_sample(row) = ttime! store timestamp 
+               transpulm_press(row) = pptrans/98.0665_dp
+               pleural_press(row) = ppl_current/98.0665_dp
+               muscle_press(row) = p_mus/98.0665_dp
+               tidal_vol(row) = (current_vol - init_vol)/1.0e+3_dp ! mm3 to mL
+               ! unit_field(nu_vent,:) = unit_field(nu_vt,:)/t_k ! net flow since beginning
+               unit_field(nu_vent,:) = elem_field(ne_Vdot,units(:)) ! flow at this timestep
+               do nunit = 1,size(unit_dvdt,2) ! (MS) for nunit in range(num_units):
+                  unit_dvdt(row,nunit) = unit_field(nu_vol,nunit) ! store vol of each unit at this particular dt of the cycle
+                  unit_dpdt(row,nunit) = unit_field(nu_dpdt,nunit)
+               enddo
+            endif
           endif
           
           ! (MS) added: Get Ppl at min Tidal Vol (zero flow) & peak Tidal Vol (zero flow)
@@ -1169,26 +1180,27 @@ end subroutine calculate_wobr
 
 !!!#############################################################################
 
-  subroutine read_params_evaluate_flow(FRC_in, T_interval_in, Gdirn_in, press_in_in, i_to_e_ratio_in,&
-   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in)
+  subroutine read_params_evaluate_flow(T_interval_in, press_in_in, i_to_e_ratio_in,&
+   refvol_in, volume_target_in, pmus_step_in, chest_wall_compliance_in, n_samples_in,filename)
    
-   integer,intent(in)::Gdirn_in
-   real(dp),intent(in)::FRC_in, T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
+   real(dp),intent(in):: T_interval_in,press_in_in,i_to_e_ratio_in,refvol_in,&
                            volume_target_in,pmus_step_in,chest_wall_compliance_in
+   integer, intent(in) :: n_samples_in
+   character(len=*),intent(in) :: filename
    character(len=60) :: sub_name
 
    sub_name = 'read_params_evaluate_flow'
    call enter_exit(sub_name,1)
 
-   FRC = FRC_in
    T_interval = T_interval_in
-   Gdirn = Gdirn_in
    press_in = press_in_in
    i_to_e_ratio = i_to_e_ratio_in
    refvol = refvol_in
    volume_target = volume_target_in
    pmus_step = pmus_step_in
    chest_wall_compliance = chest_wall_compliance_in
+   n_samples = n_samples_in
+   pathout = filename
 
    call enter_exit(sub_name,2)
 
