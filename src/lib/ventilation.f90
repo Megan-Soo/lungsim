@@ -75,10 +75,12 @@ contains
     real(dp) :: Tinsp                 ! time for inspiration (s)
     real(dp) :: undef                 ! the zero stress volume. undef < RV 
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
-    integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
+    integer :: k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init ! (MS) added
     real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
-
+    character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
+    character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
+    
     real(dp) :: dpmus,dt,endtime,err_est,err_tol,init_vol,last_vol, &
          current_vol,Pcw,ppl_current,pptrans,prev_flow,ptrans_frc, &
          sum_dpmus,sum_dpmus_ei,time,totalc,Tpass,ttime,volume_tree,WOBe,WOBr, &
@@ -126,22 +128,21 @@ contains
     call read_params_main(num_brths, num_itns, dt, err_tol)
 
     ! (MS) set number of samples you want
-    num_samples = 60
-    allocate(unit_dvdt(num_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
-    unit_dvdt(1:num_samples,1:num_units) = 0.0_dp
-    allocate(unit_dpdt(num_samples,num_units))
-    unit_dpdt(1:num_samples,1:num_units) = 0.0_dp
-    allocate(transpulm_press(num_samples))
-    transpulm_press(1:num_samples) = 0.0_dp
+    allocate(unit_dvdt(n_samples,num_units)) ! (MS) added: allocate rows (num of samples) & col (num_units) for storing unit volume across a cycle
+    unit_dvdt(1:n_samples,1:num_units) = 0.0_dp
+    allocate(unit_dpdt(n_samples,num_units))
+    unit_dpdt(1:n_samples,1:num_units) = 0.0_dp
+    allocate(transpulm_press(n_samples))
+    transpulm_press(1:n_samples) = 0.0_dp
     allocate(pleural_press(num_units))
     pleural_press(1:num_units) = 0.0_dp
-    allocate(muscle_press(num_samples))
-    muscle_press(1:num_samples) = 0.0_dp
-    allocate(tidal_vol(num_samples))
-    tidal_vol(1:num_samples) = 0.0_dp
-    allocate(time_sample(num_samples))
-    time_sample(1:num_samples) = 0.0_dp
-    T_sample = T_interval/num_samples ! Timestep for sampling
+    allocate(muscle_press(n_samples))
+    muscle_press(1:n_samples) = 0.0_dp
+    allocate(tidal_vol(n_samples))
+    tidal_vol(1:n_samples) = 0.0_dp
+    allocate(time_sample(n_samples))
+    time_sample(1:n_samples) = 0.0_dp
+    T_sample = T_interval/n_samples ! Timestep for sampling
     row = 0 ! initialise row
 
 !!! set dynamic pressure at entry. only changes for the 'pressure' option
@@ -697,7 +698,7 @@ contains
     ! Local variables
     integer :: ne,nunit,iter_step !(MS) added iter_step
     real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
-    real(dp) :: exp_term,lambda,ratio, exp_term2 ! (MS) added exp_term2
+    real(dp) :: exp_term,lambda,ratio, exp_term2, thresh ! (MS) added exp_term2
     real(dp) :: scale_factor !(MS) added: 22-Aug-26
     character(len=60) :: sub_name
 
