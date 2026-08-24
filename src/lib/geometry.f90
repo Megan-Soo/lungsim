@@ -1219,7 +1219,7 @@ contains
 
     real(dp),intent(in) :: scale_factor
     ! Local variables
-    real(dp):: scale
+    real(dp) :: thresh_low, thresh_upp, res
     integer:: ne,ne0
     character(len=60) :: sub_name
 
@@ -1228,17 +1228,27 @@ contains
     sub_name = 'set_rad_upstream_filtered_elem'
     call enter_exit(sub_name,1)
 
+   thresh_low = 0.2 ! don't constrict smaller than 0.2mm radius
+   thresh_upp = 5.0_dp ! don't dilate larger than 5mm radius
+
    do ne = 1,num_elems
       if(ne.eq.mapped_elems(ne))then! (MS): if it's a filtered elem
           ne0 = elem_cnct(-1,1,ne) ! get upstream element
           
-         !  scale = scale_factor
-          elem_field(ne_radius,ne0) = elem_field(ne_radius,ne0)*scale_factor ! ave radius across whole elem
-          elem_field(ne_radius_in,ne0) = elem_field(ne_radius_in,ne0)*scale_factor ! strained radius into elem
-          elem_field(ne_radius_in0,ne0) = elem_field(ne_radius_in0,ne0)*scale_factor ! unstrained radius into elem
-          elem_field(ne_radius_out,ne0) = elem_field(ne_radius_out,ne0)*scale_factor ! strained radius out of elem
-          elem_field(ne_radius_out0,ne0) = elem_field(ne_radius_out0,ne0)*scale_factor ! unstrained radius out of elem
-          
+          res =elem_field(ne_radius,ne0)*scale_factor
+          if((res.ge.thresh_low).and.(res.le.thresh_upp))then
+            elem_field(ne_radius,ne0) = res
+          endif
+
+         !  elem_field(ne_radius,ne0) = elem_field(ne_radius,ne0)*scale_factor ! ave radius across whole elem
+
+          ! Perfusion indices
+         !  elem_field(ne_radius_in,ne0) = elem_field(ne_radius_in,ne0)*scale_factor ! strained radius into elem
+         !  elem_field(ne_radius_in0,ne0) = elem_field(ne_radius_in0,ne0)*scale_factor ! unstrained radius into elem
+         !  elem_field(ne_radius_out,ne0) = elem_field(ne_radius_out,ne0)*scale_factor ! strained radius out of elem
+         !  elem_field(ne_radius_out0,ne0) = elem_field(ne_radius_out0,ne0)*scale_factor ! unstrained radius out of elem
+          ! Perfusion indices
+
           if(ne_vol.gt.0)then
             elem_field(ne_vol,ne0) = pi*elem_field(ne_radius,ne0)**2*elem_field(ne_length,ne0) ! update elem vol
           endif
