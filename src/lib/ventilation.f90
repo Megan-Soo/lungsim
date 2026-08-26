@@ -177,11 +177,27 @@ contains
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
-
-    chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
+   
+    if(ieee_is_nan(pptrans))then ! (MS) added: debug
+      write(*,'(''pptrans is NaN !'')')
+      stop
+    elseif(ieee_is_nan(totalc))then
+      write(*,'(''totalc is NaN !'')')
+      stop
+    elseif(ieee_is_nan(ppl_current))then
+      write(*,'(''ppl_current is NaN !'')')
+      stop      
+   endif ! (MS) added: debug
+   
+   chestwall_restvol = init_vol + chest_wall_compliance * (-ppl_current)
     Pcw = (chestwall_restvol - init_vol)/chest_wall_compliance
     write(*,'('' Chest wall RV = '',F8.3,'' L'')') chestwall_restvol/1.0e+6_dp
-        
+    
+   if(ieee_is_nan(Pcw))then ! (MS) added: debug
+      write(*,'(''Pccw is NaN !'')')
+      stop
+      endif ! (MS) added: debug
+
     call write_flow_step_results(chest_wall_compliance,init_vol, &
          current_vol,ppl_current,pptrans,Pcw,p_mus,0.0_dp,0.0_dp)
     
@@ -192,6 +208,11 @@ contains
        endtime = T_interval * n - 0.5_dp * dt ! the end time of this breath
        p_mus = 0.0_dp 
        ptrans_frc = SUM(unit_field(nu_pe,1:num_units))/num_units !ptrans at frc
+
+       if(ieee_is_nan(ptrans_frc))then ! (MS) added: debug
+         write(*,'(''ptrans_frc is NaN !'')')
+         stop
+       endif ! (MS) added: debug
 
        if(n.gt.1)then !write out 'end of breath' information
           call write_end_of_breath(init_vol,current_vol,pmus_factor_in, &
@@ -271,8 +292,8 @@ contains
 ! !!!.......update the estimate of pleural pressure
 !           call update_pleural_pressure(ppl_current) ! new pleural pressure
            
-          call write_flow_step_results(chest_wall_compliance,init_vol, &
-               current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
+         !  call write_flow_step_results(chest_wall_compliance,init_vol, &
+         !       current_vol,ppl_current,pptrans,Pcw,p_mus,time,ttime)
 
           if(pathout.ne.'')then
             ! (MS) added: after each step of the cycle, collect unit volumes if meets sampling interval
@@ -738,19 +759,39 @@ contains
       !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
 
       ! (MS) added: 22-Aug-26 start
-      if(unit_field(nu_label,nunit).eq.1)then ! (MS) label 1 is complete block eg mucus plug
-         scale_factor = 0.75_dp ! (MS) added: assign zero flow
-      elseif(unit_field(nu_label,nunit).eq.2)then ! (MS) less compliant tissue -> minimal flow
+      if(unit_field(nu_label,nunit).eq.1)then ! label 1 is complete block eg mucus plug
+         scale_factor = 0.0_dp ! (0.75_dp for vol669?) ! (MS) added: assign zero flow
+      elseif(unit_field(nu_label,nunit).eq.2)then ! less compliant tissue -> minimal flow
          scale_factor = 0.9_dp
       else
-         scale_factor = 1.0_dp ! (MS) otherwise, healthy tissue unit
+         scale_factor = 1.0_dp ! otherwise, healthy tissue unit
       endif
       unit_field(nu_comp,nunit) = scale_factor*unit_field(nu_comp,nunit)
       ! (MS) added: 22-Aug-26 end
 
       !estimate an elastic recoil pressure for the unit
+      if(unit_field(nu_label,nunit).eq.2)then ! (MS) added: 25-Aug-26: start
+         scale_factor = 1.25_dp ! increase elastic recoil in fibrotic tissue (e.g. interstitial lung disease)
+      elseif(unit_field(nu_label,nunit).eq.3)then ! decrease elastic recoil in emphysemous tissue
+         scale_factor = 0.5_dp
+      else
+         scale_factor = 1.0_dp ! (MS) otherwise, healthy tissue unit
+      endif ! (MS) added: 25-Aug-26: end
       unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
-            -1.0_dp)*exp_term/lambda
+            -1.0_dp)*exp_term/lambda * scale_factor
+
+      if(ieee_is_nan(unit_field(nu_pe,nunit)))then ! (MS) added: debug
+         write(*,'('' Pe of '',I6,'' is NaN !'')') nunit
+         write(*,'('' exp_term '',F8.6, '' '')') exp_term
+         write(*,'('' lambda '',F8.6,'' '')') lambda
+         write(*,'('' ratio '',F8.6,'' '')') ratio
+         write(*,'('' FRC vol '',F20.6,'' '')') unit_field(nu_vmin,nunit)
+         write(*,'('' Current vol '',F8.6,'' '')') unit_field(nu_vol,nunit)
+         write(*,'('' Ref vol '',F8.6,'' '')') refvol
+         write(*,'('' Compliance '',F8.6,'' '')') unit_field(nu_comp,nunit)
+         stop
+      endif ! (MS) added: debug
+
    enddo
 
     call enter_exit(sub_name,2)
@@ -816,6 +857,11 @@ contains
                elem_field(ne_Vdot,ne)
        endif
        
+       if(ieee_is_nan(elem_field(ne_Vdot,ne)))then
+         write(*,'('' Element '',I6,'' flow is NaN ! '')') ne
+         stop
+       endif
+
        units_dvdt(stepcount,nunit) = unit_field(nu_vol,nunit)
 
        ! Initialize values before assessing each unit
@@ -979,6 +1025,24 @@ contains
       Q = unit_field(nu_comp,nunit)*(alpha-beta)+ &
             (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
             exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter
+
+      if(ieee_is_nan(alpha))then ! (MS) added: debug
+         write(*,'('' nu_dpdt is NaN ! '')')
+         stop
+      elseif(ieee_is_nan(Qinit))then
+         write(*,'('' Qinit is NaN1 '')')
+         stop
+      elseif(ieee_is_nan(beta))then
+         write(*,'('' dp_external/dt is NaN !'')')
+         stop
+      elseif(ieee_is_nan(elem_field(ne_t_resist,ne)))then
+         write(*,'('' airway resistance is NaN !'')')
+         stop
+      elseif(ieee_is_nan(Q))then
+         write(*,'('' Q is NaN ! '')')
+         write(*,'('' Unit compliance '',F8.6,'' '')') unit_field(nu_comp,nunit)
+         stop
+      endif
 
       ! (MS) get flow from prev 2 iterations
       unit_field(nu_Vdot2,nunit) = unit_field(nu_Vdot1,nunit) !flow at iter-2

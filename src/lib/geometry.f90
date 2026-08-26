@@ -1132,7 +1132,7 @@ contains
    ! allocate(mapped_units(num_units))
    ! mapped_units(:) = 0 ! initialise to zero
    
-   write(*,'(" Fortran found label", I6)') label
+   write(*,'(" Fortran assigning filtered units label", I6)') label
 
    kount = 1
    do nunit = 1,num_units
@@ -1228,6 +1228,7 @@ contains
     sub_name = 'set_rad_upstream_filtered_elem'
     call enter_exit(sub_name,1)
 
+   ! keep within a reasonable radius range for reasonable resistance values (else ventilation may fail)
    thresh_low = 0.2 ! don't constrict smaller than 0.2mm radius
    thresh_upp = 5.0_dp ! don't dilate larger than 5mm radius
 
@@ -1238,6 +1239,10 @@ contains
           res =elem_field(ne_radius,ne0)*scale_factor
           if((res.ge.thresh_low).and.(res.le.thresh_upp))then
             elem_field(ne_radius,ne0) = res
+          elseif(res.lt.thresh_low)then
+            elem_field(ne_radius,ne0) = thresh_low
+          elseif(res.gt.thresh_upp)then
+            elem_field(ne_radius,ne0) = thresh_upp
           endif
 
          !  elem_field(ne_radius,ne0) = elem_field(ne_radius,ne0)*scale_factor ! ave radius across whole elem
