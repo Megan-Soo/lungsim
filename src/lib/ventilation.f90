@@ -1525,10 +1525,6 @@ end subroutine calculate_wobr
     ! --------------------------------------------------------------------------
     
     cont = .true.
-   !  if (n .ge. num_brths) then ! check if met num of user-specified breaths !(MS) commented: move into if below
-   !     cont = .false.
-       
-   !  elseif (abs(volume_target) .gt. 1.0e-3_dp) then
     if (abs(volume_target) .gt. 1.0e-3_dp) then
        if (abs(100.0_dp*(volume_target-sum_tidal)/volume_target) .gt. 0.1_dp & ! check if target tidal vol met
             .or. (n .lt. 2)) then
@@ -1540,7 +1536,6 @@ end subroutine calculate_wobr
 
             ! ##### add stuff after continue=false in evaluate_vent here. START
             ! (MS) added: calculate dynamic compliance
-            !  comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp)  ! defined below:
             comp_dyn = ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(pptrans_ei-pptrans)/98.0665_dp)  ! Nov 2025. Pressure diff defined as d_Transpulm Pressure instead of d_Pleural Pressure
             ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
             ! between points of apparent zero flow at the beginning and end of inspiration.
@@ -1560,27 +1555,27 @@ end subroutine calculate_wobr
 
             call write_end_of_breath
             
-            ! (MS) added: start.
-            write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') comp_dyn ! Nov 2025
-            ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
-            ! between points of apparent zero flow at the beginning and end of inspiration.
+            ! ! (MS) commented out: Compliances are Infinity here because pptrans_ei set to pptrans in breath_continue
+            ! !  Need to initialise new breath separately to preserve pptrans_ei (instead of resetting it to pptrans)
+            ! write(*,'('' Dynamic Compliance = '',F10.2,'' mL/cmH2O'')') comp_dyn ! Nov 2025
+            ! ! Dynamic compliance is change in volume divided by change in pressure, measured during normal breathing,
+            ! ! between points of apparent zero flow at the beginning and end of inspiration.
 
-            ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
-            write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
-            !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
-            comp_dyn / (init_vol/1.0e+6_dp) ! Nov 2025
-            ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
-            write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
-            !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
-            comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
-            write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
-            !  (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
-            comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
-            ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
-            write(*,'('' Max Resistance = '',F10.2,'' cmH2O.s/L'')') max_resis
-            write(*,'('' Min Resistance = '',F10.2,'' cmH2O.s/L'')') min_resis
+            ! ! "Specific compliance is compliance that is normalized by a lung volume" Harris 2005, "Pressure-Vol Curves of the Resp System"
+            ! write(*,'('' Specific Compliance = '',F10.2,'' mL/cmH2O/L-FRC'')') &
+            ! !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+6_dp)
+            ! comp_dyn / (init_vol/1.0e+6_dp) ! Nov 2025
+            ! ! In normal children 0-5yrs, specific compliance (75 +/- 13 ml/cm H2O/L-FRC) did not change with growth. Gerhardt 1987, Ped Pulm
+            ! write(*,'('' Specific Compliance = '',F10.2,'' cmH2O-1'')') &
+            ! !  ((vt_ei-vt_ee)/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp) ! only diff w/ the prev value is that mL instead of L was used to normalise
+            ! comp_dyn / (init_vol/1.0e+3_dp) ! Nov 2025
+            ! write(*,'('' pptrans_ei = '',F10.2,'' L'')') pptrans_ei
+            ! write(*,'('' pptrans = '',F10.2,'' L'')') pptrans
+            ! ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
+            ! write(*,'('' Max Resistance = '',F10.2,'' cmH2O.s/L'')') max_resis
+            ! write(*,'('' Min Resistance = '',F10.2,'' cmH2O.s/L'')') min_resis
             
-            print * ! new line
+            ! print * ! new line
 
          !!! Transfer the tidal volume for each elastic unit to the terminal branches,
          !!! and sum up the tree. Divide by inlet flow. This gives the time-averaged and
