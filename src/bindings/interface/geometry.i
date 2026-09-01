@@ -38,7 +38,7 @@ void write_geo_file(int ntype, const char *GEOFILE);
 void write_node_geometry_2d(const char *NODEFILE);
 void define_rad_from_file(const char *FIELDFILE, const char *radius_type="no_taper");
 void define_init_volume(const char *FIELDFILE);
+void set_initial_volume(int Gdirn, double COV, double total_volume, double Rmax, double Rmin);
 void define_rad_from_geom(const char *ORDER_SYSTEM, double CONTROL_PARAM, const char *START_FROM, double START_RAD, const char *group_type_in="all", const char *group_option_in="dummy");
-
 
 %include geometry.h

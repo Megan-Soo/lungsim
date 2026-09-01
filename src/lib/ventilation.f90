@@ -762,7 +762,7 @@ contains
       if(unit_field(nu_label,nunit).eq.1)then ! label 1 is complete block eg mucus plug
          scale_factor = 0.0_dp ! (0.75_dp for vol669?) ! (MS) added: assign zero flow
       elseif(unit_field(nu_label,nunit).eq.2)then ! less compliant tissue -> minimal flow
-         scale_factor = 0.9_dp
+         scale_factor = 0.75_dp ! 0.9_dp
       else
          scale_factor = 1.0_dp ! otherwise, healthy tissue unit
       endif

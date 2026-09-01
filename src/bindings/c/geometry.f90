@@ -344,24 +344,38 @@ contains
 !##################################################################################
 !
 
-    subroutine define_init_volume_c(FIELDFILE, filename_len) bind(C, name="define_init_volume_c")
+  subroutine define_init_volume_c(FIELDFILE, filename_len) bind(C, name="define_init_volume_c")
 
-      use iso_c_binding, only: c_ptr
-      use utils_c, only: strncpy
-      use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
-      use geometry, only: define_init_volume
-      implicit none
-  
-      integer,intent(in) :: filename_len
-      type(c_ptr), value, intent(in) :: FIELDFILE
-      character(len=MAX_FILENAME_LEN) :: filename_f
-  
-      call strncpy(filename_f, FIELDFILE, filename_len)
-  
-      call define_init_volume(filename_f)
-  
-      end subroutine define_init_volume_c
+    use iso_c_binding, only: c_ptr
+    use utils_c, only: strncpy
+    use other_consts, only: MAX_FILENAME_LEN, MAX_STRING_LEN
+    use geometry, only: define_init_volume
+    implicit none
+
+    integer,intent(in) :: filename_len
+    type(c_ptr), value, intent(in) :: FIELDFILE
+    character(len=MAX_FILENAME_LEN) :: filename_f
+
+    call strncpy(filename_f, FIELDFILE, filename_len)
+
+    call define_init_volume(filename_f)
+
+    end subroutine define_init_volume_c
 !
+!##################################################################################
+!
+  subroutine set_initial_volume_c(Gdirn, COV, total_volume, Rmax, Rmin) bind(C, name="set_initial_volume_c")
+    use iso_c_binding, only: c_ptr
+    use geometry, only: set_initial_volume
+    implicit none
+
+    integer,intent(in) :: Gdirn
+    real(dp),intent(in) :: COV, total_volume, Rmax, Rmin
+
+    call set_initial_volume(Gdirn, COV, total_volume, Rmax, Rmin)
+
+  end subroutine set_initial_volume_c
+
 !##################################################################################
 !
 
