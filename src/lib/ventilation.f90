@@ -169,7 +169,7 @@ contains
     unit_field(nu_dpdt,1:num_units) = 0.0_dp
 
 !!! calculate the compliance of each tissue unit
-    call tissue_compliance(chest_wall_compliance,undef)
+    call tissue_compliance
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_pleural_pressure(ppl_current) !calculate new pleural pressure
     pptrans=SUM(unit_field(nu_pe,1:num_units))/num_units
@@ -431,7 +431,7 @@ contains
     call volume_of_mesh(current_vol,volume_tree) ! calculate mesh volume
     call update_elem_field(1.0_dp)
     call update_resistance  !update element lengths, volumes, resistances
-    call tissue_compliance(chest_wall_compliance,undef) ! unit compliances
+    call tissue_compliance
     totalc = SUM(unit_field(nu_comp,1:num_units)) !the total model compliance
     call update_proximal_pressure ! pressure at proximal nodes of end branches
     call calculate_work(current_vol-init_vol,current_vol-last_vol,WOBe,WOBr, &
@@ -680,13 +680,14 @@ contains
 
 !!!#############################################################################
 
-  subroutine tissue_compliance(chest_wall_compliance,undef)
+  subroutine tissue_compliance
 
-    real(dp), intent(in) :: chest_wall_compliance,undef
     ! Local variables
-    integer :: ne,nunit,iter_step !(MS) added iter_step
-    real(dp),parameter :: a = 0.433_dp, b = -0.611_dp, cc = 2500.0_dp
-    real(dp) :: exp_term,lambda,ratio, exp_term2 ! (MS) added exp_term2
+    integer :: ne,nunit
+    real(dp),parameter :: a = 0.433_dp
+    real(dp),parameter :: b = -0.611_dp
+    real(dp),parameter :: cc = 2500.0_dp
+    real(dp) :: exp_term,lambda,ratio, thresh, exp_term2 ! (MS) added thresh and exp_term2 for linear compliance at low lambda
     character(len=60) :: sub_name
 
     ! --------------------------------------------------------------------------
@@ -696,33 +697,37 @@ contains
 
     !.....dV/dP=1/[(1/2h^2).c/2.(3a+b)exp().(4h(h^2-1)^2)+(h^2+1)/h^2)]
 
-   do nunit=1,num_units
-      ne=units(nunit)
-      !calculate a compliance for the tissue unit
-      ratio = unit_field(nu_vol,nunit)/undef
-      lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
-      exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+    thresh = 1.15_dp ! (MS) added: threshold for lambda below which compliance is linearised 
 
-      if(lambda.gt.1.15-dp)then ! (MS) added 21-Apr-2026: try applying lin r/s for low acinar vols
-         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(1.15_dp**2-1.0_dp)**2) ! exp term at lambda=1.15
+    do nunit = 1,num_units
+       ne = units(nunit)
+       !calculate a compliance for the tissue unit
+      !  ratio = unit_field(nu_vol,nunit)/undef ! (MS) edit: commented out
+       ratio = unit_field(nu_vol,nunit)/(refvol*unit_field(nu_vmin,nunit)) ! ratio V_def/V_undef, ie, V_EI/V_EE
+       lambda = ratio**(1.0_dp/3.0_dp) !uniform extension ratio
+       exp_term = exp(0.75_dp*(3.0_dp*a+b)*(lambda**2-1.0_dp)**2)
+
+       if(lambda.lt.thresh)then
+         exp_term2 = exp(0.75_dp*(3.0_dp*a+b)*(thresh**2-1.0_dp)**2)
          unit_field(nu_comp,nunit) = cc*exp_term2/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
-               *(1.15_dp**2-1.0_dp)**2/1.15_dp**2+(3.0_dp*a+b) &
-               *(1.15_dp**2+1.0_dp)/1.15_dp**4) ! compliance at lambda=1.15
-                
-         unit_field(nu_comp,nunit) = 0.17*cc+2*(lambda-1)*(unit_field(nu_comp,nunit)-0.17*cc) ! apply linear r/s at v low acinar volumes to compliance at lambda=1.15
-      else
+               *(thresh**2-1.0_dp)**2/thresh**2+(3.0_dp*a+b) &
+               *(thresh**2+1.0_dp)/thresh**4) ! compliance at lambda=threshold
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012?
+         unit_field(nu_comp,nunit) = (0.17*cc+2.0_dp*(lambda-1.0_dp)*(unit_field(nu_comp,nunit)-0.17*cc)) ! linear compliance for lambda<threshold
+       else
          unit_field(nu_comp,nunit) = cc*exp_term/6.0_dp*(3.0_dp*(3.0_dp*a+b)**2 &
                *(lambda**2-1.0_dp)**2/lambda**2+(3.0_dp*a+b) &
                *(lambda**2+1.0_dp)/lambda**4)
-      endif
-      unit_field(nu_comp,nunit) = undef/unit_field(nu_comp,nunit) ! V/P
-      ! add the chest wall (proportionately) in parallel
-      ! unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
+         ! unit_field(nu_comp,nunit) = (refvol*unit_field(nu_vmin,nunit))/unit_field(nu_comp,nunit) ! V/P (MS) edited: commented out. idky we do this?
+         unit_field(nu_comp,nunit) = 1.0_dp/unit_field(nu_comp,nunit) ! (MS) added: following Eq (3) in Swan2012
+       endif
+      !    ! add the chest wall (proportionately) in parallel
+      !  unit_field(nu_comp,nunit) = 1.0_dp/(1.0_dp/unit_field(nu_comp,nunit)&
       !       +1.0_dp/(chest_wall_compliance/dble(num_units)))
-      !estimate an elastic recoil pressure for the unit
-      unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
+       !estimate an elastic recoil pressure for the unit
+            unit_field(nu_pe,nunit) = cc/2.0_dp*(3.0_dp*a+b)*(lambda**2.0_dp &
             -1.0_dp)*exp_term/lambda
-   enddo
+    enddo !nunit
 
     call enter_exit(sub_name,2)
 
@@ -941,22 +946,22 @@ contains
 
       ! if (elem_nodes(2,ne)== mapped_units(nunit)) then ! if unit in defect region
       if(allocated(mapped_units).and.mapped_units(nunit).ne.0)then ! added check for allocated array - allows option to run w/o prereq filter_units_in_ply()
-         Q = 0.0_dp
-         ! ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
+         ! Q = 0.0_dp
+         ! (MS) 11-Feb-2026: assign minimal flow instead of zero flow
          
-         ! ! Calculate the mean flow into the unit in the time step
-         ! ! alpha is rate of change of pressure at start node of terminal element
-         ! alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
-         ! Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
-         ! ! beta is rate of change of 'external' pressure, incl muscle and entrance
-         ! beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
+         ! Calculate the mean flow into the unit in the time step
+         ! alpha is rate of change of pressure at start node of terminal element
+         alpha = unit_field(nu_dpdt,nunit) !dPaw/dt, updated each iter
+         Qinit = elem_field(ne_Vdot0,ne) !terminal element flow, updated each dt
+         ! beta is rate of change of 'external' pressure, incl muscle and entrance
+         beta = dp_external/dt ! == dPmus/dt (-ve for insp), updated each dt
 
-         ! ! assuming tt reduced flow due to tissue unit having lower compliance,
-         ! !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
-         ! scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
-         ! Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
-         !       (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
-         !       exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
+         ! assuming tt reduced flow due to tissue unit having lower compliance,
+         !!!    Q = C*(alpha-beta)+(Qinit-C*(alpha-beta))*exp(-dt/(C*R))
+         scale_factor = 0.5_dp ! reduce unit_field(nu_comp)
+         Q = scale_factor*unit_field(nu_comp,nunit)*(alpha-beta)+ &
+               (Qinit-unit_field(nu_comp,nunit)*(alpha-beta))* &
+               exp(-dt/(unit_field(nu_comp,nunit)*elem_field(ne_t_resist,ne))) ! (MS) where R: path resistance of prev iter         
       else
          ! Calculate the mean flow into the unit in the time step
          ! alpha is rate of change of pressure at start node of terminal element
