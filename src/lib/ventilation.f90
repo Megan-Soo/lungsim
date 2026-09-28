@@ -79,7 +79,7 @@ contains
     real(dp) :: sampling_interval, sampling_tolerance ! (MS) added: for sampling unit volumes across a cycle
     integer :: num_samples, k, row ! (MS) added: for indexing unit_dvdt array
     real(dp) :: T_sample, t_k, vt_ee, vt_ei, ppl_ei, ppl_init ! (MS) added
-    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn ! (MS) added
+    real(dp) :: POB, WOBt, WOBe_ms, WOBr_ms, work_per_litre, Pcw_ei, comp_dyn, max_resis, min_resis ! (MS) added
     character(len=MAX_FILENAME_LEN) :: writefile ! (MS) added: for exporting unit volumes across a cycle
     character(len=MAX_STRING_LEN) :: name='terminal' ! (MS) added: for exporting unit volumes across a cycle
 
@@ -308,6 +308,13 @@ contains
             vt_ee = current_vol-init_vol
           endif
 
+          if(elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp.gt.max_resis)then
+             max_resis = elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp
+          endif
+          if(elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp.lt.min_resis)then
+             min_resis = elem_field(ne_t_resist,1)*1.0e+6_dp/98.0665_dp
+          endif
+
        enddo !while time<endtime
        
 !!!....check whether simulation continues
@@ -357,7 +364,9 @@ contains
     write(*,'('' Specific Compliance (sum_tidal) = '',F10.2,'' cmH2O-1'')') &
     (sum_tidal/1.0e+3_dp)/(abs(ppl_ei-ppl_init)/98.0665_dp) / (init_vol/1.0e+3_dp)
     ! specific compliance (normal range, 0.025–0.040 cm H2O−1). Pozzi 2023, Am J Respir Crit Care Med.
-   
+    write(*,'('' Max Resistance = '',F10.2,'' cmH2O.s/L'')') max_resis
+    write(*,'('' Min Resistance = '',F10.2,'' cmH2O.s/L'')') min_resis
+
     print * ! new line
 
 !!! Transfer the tidal volume for each elastic unit to the terminal branches,
