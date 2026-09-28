@@ -232,6 +232,8 @@ contains
           WOBt = 0.0_dp ! (MS) added: reset WOBt for each new breath cycle
           comp_dyn = 0.0_dp ! (MS) added: reset comp_dyn for each new breath cycle
           work_per_litre = 0.0_dp ! (MS) added: reset work_per_litre for each new breath cycle
+          max_resis = 0.0_dp ! (MS) added: reset max resistance for each new breath cycle
+          min_resis = 1.0e+9_dp ! (MS) added: reset min resistance for each new breath cycle
           stepcount=1 ! (MS) added: reset stepcount for each new breath cycle
 
           ! (MS) reset these variables for each new breath cycle
