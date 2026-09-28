@@ -1,5 +1,6 @@
 
 #include "ventilation.h"
+#include "string.h"
 
 void evaluate_vent_c();
 void evaluate_uniform_flow_c();
